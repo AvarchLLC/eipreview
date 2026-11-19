@@ -154,7 +154,7 @@ export function AboutPage({ onNavigate, theme, onToggleTheme }: Props) {
           </div>
 
           <h1 className="text-3xl sm:text-5xl lg:text-6xl font-black tracking-[-0.035em] text-fg max-w-4xl mx-auto leading-[1.15]">
-            The workspace for authoring, reviewing, and editing Ethereum proposals.
+            The workspace for authoring, reviewing, and editing Ethereum Improvement Proposals.
           </h1>
 
           <p className="mt-5 text-base sm:text-lg text-muted max-w-2xl mx-auto leading-relaxed">
@@ -319,7 +319,7 @@ export function AboutPage({ onNavigate, theme, onToggleTheme }: Props) {
               Frequently Asked Questions
             </h2>
             <p className="text-xs sm:text-sm text-muted mt-2">
-              Common questions about authoring, reviewing, and publishing Ethereum proposals.
+              Common questions about authoring, reviewing, and publishing Ethereum Improvement Proposals.
             </p>
           </div>
 
