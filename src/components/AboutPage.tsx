@@ -1,21 +1,18 @@
+import { useState } from "react";
 import {
   ArrowRight,
   BookCheck,
   CheckCircle2,
-  Code2,
+  ChevronDown,
   ExternalLink,
   FileEdit,
   GitPullRequest,
   Github,
   Heart,
-  Layers,
+  HelpCircle,
   Moon,
-  Search,
-  ShieldCheck,
   Sparkles,
   Sun,
-  Terminal,
-  Zap,
 } from "lucide-react";
 import type { RepoKind, TabMode } from "../lib/types";
 
@@ -28,7 +25,55 @@ interface Props {
   onToggleTheme: (event?: React.MouseEvent) => void;
 }
 
+interface FaqItem {
+  question: string;
+  answer: string;
+  linkText?: string;
+  linkHref?: string;
+}
+
+const FAQS: FaqItem[] = [
+  {
+    question: "What types of proposals are supported?",
+    answer:
+      "EIP Review supports Ethereum Improvement Proposals (EIPs), Application-level Standards (ERCs), and Rollup Improvement Proposals (RIPs). It automatically applies repository-specific rules, status workflows, and category options.",
+  },
+  {
+    question: "How does live proposal validation work?",
+    answer:
+      "As you write, the editor checks your document against 40+ editorial and formatting constraints in real time. This mirrors the official Ethereum CI checks—including EIP Walidator (eipw), title and description character limits, section ordering, mandatory CC0 copyright waiver, and RFC 2119 normative language rules.",
+  },
+  {
+    question: "Can I review an open pull request from GitHub?",
+    answer:
+      "Yes! Navigate to Review PR (/review) and enter any open pull request number (e.g. 12660). EIP Review fetches the proposal file, flags editorial issues, visually highlights misplaced normative keywords with 1-click fixes, and lets you inspect the rendered output before merging.",
+  },
+  {
+    question: "How do I share a specific proposal or PR review with editors?",
+    answer:
+      "Every proposal and PR review has a clean, direct canonical URL (e.g. eipreview.com/eip/1559 or eipreview.com/review/12660). Anyone who opens the link will see the proposal loaded and validated immediately.",
+  },
+  {
+    question: "Where should I post my proposal for community discussion?",
+    answer:
+      "Per EIP-1 requirements, all proposals require an active discussion thread on the Ethereum Magicians forum before advancing through the standards track. You can paste your thread URL directly into the Discussions-To metadata field.",
+    linkText: "Visit Ethereum Magicians",
+    linkHref: "https://ethereum-magicians.org",
+  },
+  {
+    question: "Is my draft stored on any remote server?",
+    answer:
+      "No. All drafting, validation, and rendering take place locally in your web browser. No drafts, telemetry, or account data are sent to external databases. You can copy the raw Markdown or download the .md file directly to commit to GitHub.",
+  },
+];
+
 export function AboutPage({ onNavigate, theme, onToggleTheme }: Props) {
+  const [openFaq, setOpenFaq] = useState<number | null>(0);
+
+  const toggleFaq = (idx: number) => {
+    setOpenFaq((prev) => (prev === idx ? null : idx));
+  };
+
   return (
     <div className="min-h-screen flex flex-col bg-bg text-body selection:bg-zinc-200 selection:text-zinc-900 dark:selection:bg-zinc-800 dark:selection:text-zinc-100">
       {/* Top Navbar */}
@@ -52,19 +97,19 @@ export function AboutPage({ onNavigate, theme, onToggleTheme }: Props) {
             <nav className="hidden md:flex items-center gap-1 text-xs font-medium text-muted mr-2">
               <button
                 onClick={(e) => onNavigate({ tab: "new" }, e)}
-                className="px-2.5 py-1.5 rounded-md hover:text-fg hover:bg-zinc-100 dark:hover:bg-zinc-800 transition-colors"
+                className="px-2.5 py-1.5 rounded-md hover:text-fg hover:bg-zinc-100 dark:hover:bg-zinc-800 transition-colors cursor-pointer"
               >
                 Authoring (/new)
               </button>
               <button
                 onClick={(e) => onNavigate({ tab: "pr" }, e)}
-                className="px-2.5 py-1.5 rounded-md hover:text-fg hover:bg-zinc-100 dark:hover:bg-zinc-800 transition-colors"
+                className="px-2.5 py-1.5 rounded-md hover:text-fg hover:bg-zinc-100 dark:hover:bg-zinc-800 transition-colors cursor-pointer"
               >
                 Review PR (/review)
               </button>
               <button
                 onClick={(e) => onNavigate({ tab: "import" }, e)}
-                className="px-2.5 py-1.5 rounded-md hover:text-fg hover:bg-zinc-100 dark:hover:bg-zinc-800 transition-colors"
+                className="px-2.5 py-1.5 rounded-md hover:text-fg hover:bg-zinc-100 dark:hover:bg-zinc-800 transition-colors cursor-pointer"
               >
                 Import (/import)
               </button>
@@ -263,144 +308,65 @@ export function AboutPage({ onNavigate, theme, onToggleTheme }: Props) {
           </div>
         </section>
 
-        {/* Visual Workflow Architecture (Step 01 - 04) */}
-        <section className="mx-auto max-w-[1200px] px-4 py-12 sm:px-6">
+        {/* Frequently Asked Questions (FAQ Section) */}
+        <section className="mx-auto max-w-[900px] px-4 py-12 sm:px-6">
           <div className="text-center mb-10">
-            <h2 className="text-xs font-semibold uppercase tracking-wider text-muted">Workflow Pipeline</h2>
-            <p className="text-xl sm:text-2xl font-bold tracking-tight text-fg mt-1">
-              From Draft to Passing Ethereum CI
+            <div className="inline-flex items-center gap-1.5 rounded-full border border-border bg-card px-3 py-1 text-[11px] font-semibold text-muted uppercase tracking-wider mb-2 shadow-2xs">
+              <HelpCircle className="h-3.5 w-3.5 text-indigo-500" />
+              <span>Questions & Answers</span>
+            </div>
+            <h2 className="text-2xl sm:text-3xl font-bold tracking-tight text-fg">
+              Frequently Asked Questions
+            </h2>
+            <p className="text-xs sm:text-sm text-muted mt-2">
+              Common questions about authoring, reviewing, and publishing Ethereum proposals.
             </p>
           </div>
 
-          <div className="grid grid-cols-1 md:grid-cols-4 gap-4">
-            {/* Step 1 */}
-            <div className="rounded-2xl border border-border bg-card p-5 shadow-xs flex flex-col justify-between">
-              <div>
-                <div className="flex h-10 w-10 items-center justify-center rounded-xl bg-indigo-50 dark:bg-indigo-950/60 text-indigo-600 dark:text-indigo-400 border border-indigo-200/50 dark:border-indigo-800/50 mb-4 shadow-2xs">
-                  <Code2 className="h-5 w-5" />
-                </div>
-                <div className="text-[10px] font-mono font-bold uppercase tracking-wider text-indigo-600 dark:text-indigo-400">
-                  Step 01
-                </div>
-                <h3 className="text-base font-bold text-fg mt-1">Guided Drafting</h3>
-                <p className="text-xs text-muted mt-2 leading-relaxed">
-                  Intuitive form fields for metadata (title, category, discussions link) paired with markdown sections and RFC 2119 formatting snippets.
-                </p>
-              </div>
-              <div className="mt-4 pt-3 border-t border-border/60 text-[11px] font-mono text-muted flex items-center justify-between">
-                <span>YAML & Markdown</span>
-                <span className="text-indigo-500 font-bold">2-Way Sync</span>
-              </div>
-            </div>
+          <div className="space-y-3">
+            {FAQS.map((faq, idx) => {
+              const isOpen = openFaq === idx;
+              return (
+                <div
+                  key={idx}
+                  className="rounded-2xl border border-border bg-card overflow-hidden shadow-xs transition-all duration-200"
+                >
+                  <button
+                    type="button"
+                    onClick={() => toggleFaq(idx)}
+                    className="flex w-full items-center justify-between gap-4 p-5 text-left select-none hover:bg-zinc-50/60 dark:hover:bg-zinc-800/40 transition-colors cursor-pointer"
+                  >
+                    <span className="text-sm sm:text-base font-semibold text-fg">
+                      {faq.question}
+                    </span>
+                    <ChevronDown
+                      className={`h-4 w-4 shrink-0 text-muted transition-transform duration-200 ${
+                        isOpen ? "rotate-180 text-fg" : ""
+                      }`}
+                    />
+                  </button>
 
-            {/* Step 2 */}
-            <div className="rounded-2xl border border-border bg-card p-5 shadow-xs flex flex-col justify-between">
-              <div>
-                <div className="flex h-10 w-10 items-center justify-center rounded-xl bg-violet-50 dark:bg-violet-950/60 text-violet-600 dark:text-violet-400 border border-violet-200/50 dark:border-violet-800/50 mb-4 shadow-2xs">
-                  <Zap className="h-5 w-5" />
+                  {isOpen && (
+                    <div className="border-t border-border/60 bg-zinc-50/30 dark:bg-zinc-900/30 px-5 pb-5 pt-3 text-xs sm:text-sm text-muted leading-relaxed space-y-2">
+                      <p>{faq.answer}</p>
+                      {faq.linkHref && faq.linkText && (
+                        <div>
+                          <a
+                            href={faq.linkHref}
+                            target="_blank"
+                            rel="noreferrer"
+                            className="inline-flex items-center gap-1 text-xs font-semibold text-indigo-600 dark:text-indigo-400 hover:underline pt-1"
+                          >
+                            <span>{faq.linkText}</span>
+                            <ExternalLink className="h-3 w-3" />
+                          </a>
+                        </div>
+                      )}
+                    </div>
+                  )}
                 </div>
-                <div className="text-[10px] font-mono font-bold uppercase tracking-wider text-violet-600 dark:text-violet-400">
-                  Step 02
-                </div>
-                <h3 className="text-base font-bold text-fg mt-1">Instant Linting</h3>
-                <p className="text-xs text-muted mt-2 leading-relaxed">
-                  Pure client-side rule validation checks title lengths (≤44), descriptions (≤140), required sections order, and mandatory CC0 waiver.
-                </p>
-              </div>
-              <div className="mt-4 pt-3 border-t border-border/60 text-[11px] font-mono text-muted flex items-center justify-between">
-                <span>40+ Lint Rules</span>
-                <span className="text-violet-500 font-bold">&lt; 10ms</span>
-              </div>
-            </div>
-
-            {/* Step 3 */}
-            <div className="rounded-2xl border border-border bg-card p-5 shadow-xs flex flex-col justify-between">
-              <div>
-                <div className="flex h-10 w-10 items-center justify-center rounded-xl bg-sky-50 dark:bg-sky-950/60 text-sky-600 dark:text-sky-400 border border-sky-200/50 dark:border-sky-800/50 mb-4 shadow-2xs">
-                  <ShieldCheck className="h-5 w-5" />
-                </div>
-                <div className="text-[10px] font-mono font-bold uppercase tracking-wider text-sky-600 dark:text-sky-400">
-                  Step 03
-                </div>
-                <h3 className="text-base font-bold text-fg mt-1">EIP Walidator & CI Parity</h3>
-                <p className="text-xs text-muted mt-2 leading-relaxed">
-                  Real-time validation mirroring the official GitHub Actions suite: EIP Walidator (eipw), Markdown Linter, Link Check, and CodeSpell.
-                </p>
-              </div>
-              <div className="mt-4 pt-3 border-t border-border/60 text-[11px] font-mono text-muted flex items-center justify-between">
-                <span>GitHub CI Suite</span>
-                <span className="text-sky-500 font-bold">Passing Gate</span>
-              </div>
-            </div>
-
-            {/* Step 4 */}
-            <div className="rounded-2xl border border-border bg-card p-5 shadow-xs flex flex-col justify-between">
-              <div>
-                <div className="flex h-10 w-10 items-center justify-center rounded-xl bg-emerald-50 dark:bg-emerald-950/60 text-emerald-600 dark:text-emerald-400 border border-emerald-200/50 dark:border-emerald-800/50 mb-4 shadow-2xs">
-                  <CheckCircle2 className="h-5 w-5" />
-                </div>
-                <div className="text-[10px] font-mono font-bold uppercase tracking-wider text-emerald-600 dark:text-emerald-400">
-                  Step 04
-                </div>
-                <h3 className="text-base font-bold text-fg mt-1">Export & PR Review</h3>
-                <p className="text-xs text-muted mt-2 leading-relaxed">
-                  Export ready-to-commit Markdown files, or import an open PR number directly from GitHub to review formatting issues on live PRs.
-                </p>
-              </div>
-              <div className="mt-4 pt-3 border-t border-border/60 text-[11px] font-mono text-muted flex items-center justify-between">
-                <span>Output Format</span>
-                <span className="text-emerald-500 font-bold">eip-N.md</span>
-              </div>
-            </div>
-          </div>
-        </section>
-
-        {/* Technical Architecture & Documentation Section (Relocated & Organized) */}
-        <section className="mx-auto max-w-[1200px] px-4 py-12 sm:px-6">
-          <div className="rounded-3xl border border-border bg-card p-6 sm:p-10 shadow-xs">
-            <div className="mb-8">
-              <span className="text-[11px] font-mono font-bold uppercase tracking-wider text-muted">
-                Documentation & Architecture
-              </span>
-              <h2 className="text-xl sm:text-2xl font-bold tracking-tight text-fg mt-1">
-                Under the Hood: Pure Client-Side Architecture
-              </h2>
-              <p className="text-xs sm:text-sm text-muted mt-2 max-w-3xl leading-relaxed">
-                EIP Review operates entirely in the user’s browser without storing drafts on foreign servers or tracking author activity. Here is how the runtime and validation engine function:
-              </p>
-            </div>
-
-            <div className="grid grid-cols-1 md:grid-cols-3 gap-5">
-              <div className="rounded-xl border border-border/80 bg-zinc-50/50 dark:bg-zinc-900/40 p-4">
-                <div className="flex items-center gap-2 mb-2 text-fg font-semibold text-xs">
-                  <Terminal className="h-4 w-4 text-muted" />
-                  <span>Zero-Backend Operation</span>
-                </div>
-                <p className="text-xs text-muted leading-relaxed">
-                  No database, no user accounts, and no proprietary lock-in. Imports use unauthenticated public GitHub REST endpoints. All parsing and validation execute synchronously in memory.
-                </p>
-              </div>
-
-              <div className="rounded-xl border border-border/80 bg-zinc-50/50 dark:bg-zinc-900/40 p-4">
-                <div className="flex items-center gap-2 mb-2 text-fg font-semibold text-xs">
-                  <Layers className="h-4 w-4 text-muted" />
-                  <span>Tri-Repo Specification Matrix</span>
-                </div>
-                <p className="text-xs text-muted leading-relaxed">
-                  Enforces distinct rules across <code className="font-mono text-[11px]">ethereum/EIPs</code>, <code className="font-mono text-[11px]">ethereum/ERCs</code>, and <code className="font-mono text-[11px]">ethereum/RIPs</code> with exact category restrictions.
-                </p>
-              </div>
-
-              <div className="rounded-xl border border-border/80 bg-zinc-50/50 dark:bg-zinc-900/40 p-4">
-                <div className="flex items-center gap-2 mb-2 text-fg font-semibold text-xs">
-                  <Search className="h-4 w-4 text-muted" />
-                  <span>Deep URL Linking</span>
-                </div>
-                <p className="text-xs text-muted leading-relaxed">
-                  Share exact proposal views with editors using clean canonical routes like <code className="font-mono text-[11px]">/eip/1559</code>, <code className="font-mono text-[11px]">/review/12660</code>, or <code className="font-mono text-[11px]">/new</code>.
-                </p>
-              </div>
-            </div>
+              );
+            })}
           </div>
         </section>
 
@@ -417,7 +383,7 @@ export function AboutPage({ onNavigate, theme, onToggleTheme }: Props) {
               Empowering Ethereum proposal authors, reviewers, and editors.
             </h2>
             <p className="text-xs sm:text-sm text-muted max-w-2xl mx-auto mt-3 leading-relaxed">
-              EIP Review is a standalone, client-side authoring and linting workspace built to make proposal writing accessible, compliant, and intuitive for everyone in the Ethereum ecosystem.
+              EIP Review is a standalone, browser-based authoring and linting workspace built to make proposal writing accessible, compliant, and intuitive for everyone in the Ethereum ecosystem.
             </p>
 
             <div className="mt-8 flex flex-wrap items-center justify-center gap-4 text-xs font-medium">
