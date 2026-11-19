@@ -568,11 +568,21 @@ export function Editor({ data, repo, onChange, issuesByField, highlightTarget }:
                             type="button"
                             onClick={() => {
                               const cur = data.specification.trim();
-                              if (cur.includes("RFC 2119") && cur.includes("RFC 8174")) return;
+                              if (cur.includes("rfc-editor.org/rfc/rfc2119") && cur.includes("rfc-editor.org/rfc/rfc8174")) return;
+                              if (cur.includes("RFC 2119") && cur.includes("RFC 8174")) {
+                                const updated = cur.replace(
+                                  /The key words [^\n]+interpreted as described in [^\n]+\.?/i,
+                                  RFC_2119_BOILERPLATE
+                                );
+                                if (updated !== cur) {
+                                  onChange("specification", updated);
+                                  return;
+                                }
+                              }
                               onChange("specification", cur ? `${RFC_2119_BOILERPLATE}\n\n${cur}` : RFC_2119_BOILERPLATE);
                             }}
                             className="ml-1 inline-flex items-center gap-1 rounded bg-indigo-50 dark:bg-indigo-950/50 text-indigo-700 dark:text-indigo-300 border border-indigo-200/60 dark:border-indigo-800/60 px-2 py-0.5 text-[10px] font-medium hover:bg-indigo-100 dark:hover:bg-indigo-900/60 transition-colors"
-                            title="Insert RFC 2119 normative language boilerplate"
+                            title="Insert official RFC 2119 & RFC 8174 boilerplate with links"
                           >
                             <Sparkles className="h-2.5 w-2.5 text-indigo-500" /> RFC 2119
                           </button>
