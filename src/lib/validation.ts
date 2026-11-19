@@ -350,10 +350,33 @@ export function validateProposal(md: string, opts: ValidateOptions = {}): Valida
     }
     if (sec.content.includes("RFC 2119") && sec.content.includes("RFC 8174")) hasBoilerplate = true;
   }
-  if (hasKeyword && !hasBoilerplate) m.push({ level: "warning", category: "authoring", message: `RFC 2119/8174 keywords are used but the boilerplate paragraph is missing from Specification`, section: "Normative Language", line: specLine });
+  if (hasKeyword && !hasBoilerplate) {
+    m.push({
+      level: "warning",
+      category: "authoring",
+      message: `RFC 2119/8174 keywords are used but the boilerplate paragraph is missing from Specification`,
+      section: "Specification",
+      line: specLine,
+    });
+  }
   if (outside.length > 0) {
-    const uniq = [...new Set(outside.map((k) => `${k.keyword} in ${k.section}`))];
-    m.push({ level: "warning", category: "authoring", message: `Normative keywords should only appear in Specification, found: ${uniq.slice(0, 3).join(", ")}${uniq.length > 3 ? ` (+${uniq.length - 3} more)` : ""}`, section: "Normative Language", line: outside[0].line });
+    const outsideBySec = new Map<string, { keywords: Set<string>; line: number }>();
+    for (const item of outside) {
+      if (!outsideBySec.has(item.section)) {
+        outsideBySec.set(item.section, { keywords: new Set(), line: item.line });
+      }
+      outsideBySec.get(item.section)!.keywords.add(item.keyword);
+    }
+    for (const [secName, info] of outsideBySec) {
+      const kwList = Array.from(info.keywords);
+      m.push({
+        level: "warning",
+        category: "authoring",
+        message: `Normative keywords (${kwList.join(", ")}) should only appear in Specification, not in ${secName}`,
+        section: secName,
+        line: info.line,
+      });
+    }
   }
 
   // Prose

@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useState } from "react";
+import { useEffect, useMemo, useRef, useState } from "react";
 import {
   Bold,
   ChevronDown,
@@ -7,11 +7,109 @@ import {
   Italic,
   Link,
   List,
+  Search,
   Sparkles,
 } from "lucide-react";
 import type { ProposalData, ProposalField, RepoKind, ValidationMessage } from "../lib/types";
 import { PREAMBLE_FIELDS, SECTION_FIELDS, RFC_2119_BOILERPLATE } from "../data/template";
 import { cn } from "../lib/cn";
+
+function getNormativeMatches(text: string) {
+  if (!text) return [];
+  const regex = /\b(MUST NOT|MUST|REQUIRED|SHALL NOT|SHALL|SHOULD NOT|SHOULD|NOT RECOMMENDED|RECOMMENDED|OPTIONAL|MAY)\b/g;
+  const counts = new Map<string, number>();
+  let match: RegExpExecArray | null;
+  while ((match = regex.exec(text)) !== null) {
+    counts.set(match[0], (counts.get(match[0]) || 0) + 1);
+  }
+  return Array.from(counts.entries()).map(([kw, count]) => ({ kw, count }));
+}
+
+interface SectionTextareaProps {
+  value: string;
+  onChange: (val: string) => void;
+  rows: number;
+  placeholder?: string;
+  isSpecification: boolean;
+}
+
+function SectionTextarea({
+  value,
+  onChange,
+  rows,
+  placeholder,
+  isSpecification,
+}: SectionTextareaProps) {
+  const textareaRef = useRef<HTMLTextAreaElement | null>(null);
+  const backdropRef = useRef<HTMLDivElement | null>(null);
+
+  const syncScroll = () => {
+    if (textareaRef.current && backdropRef.current) {
+      backdropRef.current.scrollTop = textareaRef.current.scrollTop;
+      backdropRef.current.scrollLeft = textareaRef.current.scrollLeft;
+    }
+  };
+
+  const backdropTokens = useMemo(() => {
+    if (!value) return null;
+    const regex = /\b(MUST NOT|MUST|REQUIRED|SHALL NOT|SHALL|SHOULD NOT|SHOULD|NOT RECOMMENDED|RECOMMENDED|OPTIONAL|MAY)\b/g;
+    const parts: React.ReactNode[] = [];
+    let lastIdx = 0;
+    let match: RegExpExecArray | null;
+
+    while ((match = regex.exec(value)) !== null) {
+      if (match.index > lastIdx) {
+        parts.push(value.slice(lastIdx, match.index));
+      }
+      const kw = match[0];
+      parts.push(
+        <mark
+          key={match.index}
+          className={cn(
+            "rounded-xs font-bold ring-1 transition-all select-none",
+            !isSpecification
+              ? "bg-amber-300/80 dark:bg-amber-400/50 text-transparent ring-amber-500/70"
+              : "bg-indigo-200/60 dark:bg-indigo-500/35 text-transparent ring-indigo-400/40"
+          )}
+        >
+          {kw}
+        </mark>
+      );
+      lastIdx = regex.lastIndex;
+    }
+    if (lastIdx < value.length) {
+      parts.push(value.slice(lastIdx));
+    }
+    return parts;
+  }, [value, isSpecification]);
+
+  return (
+    <div className="relative">
+      {/* Backdrop for keyword highlight styling */}
+      <div
+        ref={backdropRef}
+        aria-hidden="true"
+        className="pointer-events-none absolute inset-0 z-0 overflow-hidden whitespace-pre-wrap break-words p-3 font-mono text-xs leading-relaxed text-transparent border border-transparent select-none"
+        style={{ wordBreak: "break-word" }}
+      >
+        {backdropTokens}
+      </div>
+
+      {/* Real editable textarea */}
+      <textarea
+        ref={textareaRef}
+        value={value}
+        onChange={(e) => onChange(e.target.value)}
+        onScroll={syncScroll}
+        rows={rows}
+        placeholder={placeholder}
+        spellCheck={false}
+        className="relative z-10 w-full resize-y bg-transparent p-3 font-mono text-xs leading-relaxed text-fg placeholder:text-muted/40 outline-none"
+        style={{ wordBreak: "break-word" }}
+      />
+    </div>
+  );
+}
 
 interface Props {
   data: ProposalData;
@@ -118,6 +216,42 @@ export function Editor({ data, repo, onChange, issuesByField, highlightTarget }:
   const insertFormatting = (key: ProposalField, prefix: string, suffix: string = "") => {
     const cur = data[key] || "";
     onChange(key, cur ? `${cur}\n${prefix}${suffix}` : `${prefix}${suffix}`);
+  };
+
+  /** Focus and select the next occurrence of a keyword in the section's textarea */
+  const jumpToKeyword = (sectionKey: ProposalField, keyword: string) => {
+    const el = document.getElementById(`editor-${sectionKey}`);
+    const textarea = el?.querySelector("textarea");
+    if (!textarea) return;
+
+    const text = textarea.value;
+    const currentPos = textarea.selectionEnd;
+    const regex = new RegExp(`\\b${keyword}\\b`, "g");
+    regex.lastIndex = currentPos >= text.length ? 0 : currentPos;
+
+    let match = regex.exec(text);
+    if (!match) {
+      regex.lastIndex = 0;
+      match = regex.exec(text);
+    }
+
+    if (match) {
+      textarea.focus();
+      textarea.setSelectionRange(match.index, match.index + match[0].length);
+      const linesBefore = text.slice(0, match.index).split("\n").length;
+      const lineHeight = 20;
+      textarea.scrollTop = Math.max(0, (linesBefore - 2) * lineHeight);
+    }
+  };
+
+  /** Convert all normative keywords in a section to lowercase (e.g. MUST -> must) */
+  const lowercaseNormativeKeywords = (sectionKey: ProposalField) => {
+    const text = data[sectionKey] || "";
+    const updated = text.replace(
+      /\b(MUST NOT|MUST|REQUIRED|SHALL NOT|SHALL|SHOULD NOT|SHOULD|NOT RECOMMENDED|RECOMMENDED|OPTIONAL|MAY)\b/g,
+      (m) => m.toLowerCase()
+    );
+    onChange(sectionKey, updated);
   };
 
   const statusTone =
@@ -320,6 +454,7 @@ export function Editor({ data, repo, onChange, issuesByField, highlightTarget }:
             const secIssues = getIssuesFor(s.key);
             const empty = !data[s.key]?.trim();
             const isHighlighted = highlightTarget === s.key;
+            const normativeMatches = getNormativeMatches(data[s.key]);
 
             return (
               <div
@@ -445,22 +580,84 @@ export function Editor({ data, repo, onChange, issuesByField, highlightTarget }:
                       </div>
                     </div>
 
-                    {/* Textarea with direct error/warning highlighting */}
-                    <textarea
-                      value={data[s.key]}
-                      onChange={(e) => onChange(s.key, e.target.value)}
-                      rows={s.key === "specification" || s.key === "abstract" ? 8 : 4}
-                      placeholder={`Write the ${s.label} section in Markdown…`}
+                    {/* Normative Keyword Navigator & Quick Fix */}
+                    {normativeMatches.length > 0 && s.key !== "specification" && (
+                      <div className="flex flex-wrap items-center justify-between gap-2 rounded-lg border border-warning/60 bg-warning-soft/40 dark:bg-warning-soft/20 px-3 py-2 text-xs">
+                        <div className="flex items-center gap-1.5 flex-wrap">
+                          <span className="font-semibold text-warning">
+                            ⚠️ Normative keywords in {s.label}:
+                          </span>
+                          {normativeMatches.map(({ kw, count }) => (
+                            <button
+                              key={kw}
+                              type="button"
+                              onClick={() => jumpToKeyword(s.key, kw)}
+                              className="inline-flex items-center gap-1 rounded bg-card px-2 py-0.5 font-mono text-[11px] font-bold text-fg border border-border shadow-2xs hover:bg-zinc-100 dark:hover:bg-zinc-800 transition-colors cursor-pointer"
+                              title={`Click to jump to and highlight "${kw}" in textarea`}
+                            >
+                              <Search className="h-2.5 w-2.5 opacity-60" />
+                              <span>{kw}</span>
+                              <span className="rounded-full bg-warning/20 px-1 py-0.2 text-[9px] text-warning font-semibold">
+                                {count}
+                              </span>
+                            </button>
+                          ))}
+                        </div>
+                        <button
+                          type="button"
+                          onClick={() => lowercaseNormativeKeywords(s.key)}
+                          className="inline-flex items-center gap-1 rounded bg-warning text-white dark:text-zinc-950 font-semibold px-2.5 py-1 text-[11px] shadow-xs hover:opacity-90 active:scale-95 transition-all cursor-pointer"
+                          title="Convert all capitalized normative keywords in this section to lowercase (e.g. MUST -> must)"
+                        >
+                          <Sparkles className="h-3 w-3" />
+                          <span>Fix: Lowercase all ({normativeMatches.reduce((acc, n) => acc + n.count, 0)})</span>
+                        </button>
+                      </div>
+                    )}
+
+                    {normativeMatches.length > 0 && s.key === "specification" && (
+                      <div className="flex flex-wrap items-center justify-between gap-2 rounded-lg border border-border bg-card/60 px-3 py-1.5 text-xs text-muted">
+                        <div className="flex items-center gap-1.5 flex-wrap">
+                          <span className="font-medium text-[11px] text-muted">
+                            Normative keywords:
+                          </span>
+                          {normativeMatches.map(({ kw, count }) => (
+                            <button
+                              key={kw}
+                              type="button"
+                              onClick={() => jumpToKeyword(s.key, kw)}
+                              className="inline-flex items-center gap-1 rounded border border-border bg-bg px-1.5 py-0.5 font-mono text-[10px] font-semibold text-fg hover:bg-zinc-100 dark:hover:bg-zinc-800 transition-colors cursor-pointer"
+                              title={`Jump to next occurrence of "${kw}" in Specification`}
+                            >
+                              <Search className="h-2.5 w-2.5 opacity-60" />
+                              <span>{kw}</span>
+                              <span className="text-muted text-[9px]">({count})</span>
+                            </button>
+                          ))}
+                        </div>
+                      </div>
+                    )}
+
+                    {/* Textarea with backdrop keyword highlighting */}
+                    <div
                       className={cn(
-                        "w-full resize-y rounded-lg p-3 font-mono text-xs leading-relaxed text-fg placeholder:text-muted/40 outline-none transition-all duration-200",
+                        "rounded-lg transition-all duration-200",
                         secSev === "error"
-                          ? "border-2 border-error bg-error-soft/30 dark:bg-error-soft/10 text-fg focus:border-error focus:ring-2 focus:ring-error/20"
+                          ? "border-2 border-error bg-error-soft/30 dark:bg-error-soft/10 ring-error/20"
                           : secSev === "warning"
-                          ? "border-2 border-warning bg-warning-soft/30 dark:bg-warning-soft/10 text-fg focus:border-warning focus:ring-2 focus:ring-warning/20"
-                          : "border border-border bg-card focus:border-indigo-500/50 focus:ring-1 focus:ring-indigo-500/20",
+                          ? "border-2 border-warning bg-warning-soft/30 dark:bg-warning-soft/10 ring-warning/20"
+                          : "border border-border bg-card focus-within:border-indigo-500/50 focus-within:ring-1 focus-within:ring-indigo-500/20",
                         isHighlighted && "ring-2 ring-indigo-500 border-indigo-500 shadow-md shadow-indigo-500/20"
                       )}
-                    />
+                    >
+                      <SectionTextarea
+                        value={data[s.key]}
+                        onChange={(val) => onChange(s.key, val)}
+                        rows={s.key === "specification" || s.key === "abstract" ? 8 : 4}
+                        placeholder={`Write the ${s.label} section in Markdown…`}
+                        isSpecification={s.key === "specification"}
+                      />
+                    </div>
 
                     {/* Inline Issue Messages for this section */}
                     {secIssues.length > 0 && (

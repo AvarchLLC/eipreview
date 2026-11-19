@@ -25,22 +25,21 @@ function normalizeKey(field?: string, section?: string): string | null {
   const parts = [field, section].filter(Boolean).join(" ").toLowerCase();
 
   // 1. Body sections
-  if (parts.includes("abstract")) return "abstract";
+  if (parts.includes("backwards") || parts.includes("compatibility")) return "backwardsCompatibility";
   if (parts.includes("motivation")) return "motivation";
+  if (parts.includes("rationale")) return "rationale";
+  if (parts.includes("test")) return "testCases";
+  if (parts.includes("reference") || parts.includes("implementation")) return "referenceImplementation";
+  if (parts.includes("security")) return "securityConsiderations";
+  if (parts.includes("abstract")) return "abstract";
   if (
     parts.includes("specification") ||
-    parts.includes("normative") ||
     parts.includes("rfc 2119") ||
     parts.includes("rfc2119") ||
     parts.includes("rfc 8174")
   ) {
     return "specification";
   }
-  if (parts.includes("rationale")) return "rationale";
-  if (parts.includes("backwards") || parts.includes("compatibility")) return "backwardsCompatibility";
-  if (parts.includes("test")) return "testCases";
-  if (parts.includes("reference") || parts.includes("implementation")) return "referenceImplementation";
-  if (parts.includes("security")) return "securityConsiderations";
   if (parts.includes("copyright") || parts.includes("license") || parts.includes("cc0")) return "abstract";
 
   // 2. Preamble fields

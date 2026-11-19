@@ -27,7 +27,21 @@ export const OutputPane = forwardRef<HTMLDivElement, Props>(function OutputPane(
         }),
     [frontmatter]
   );
-  const html = useMemo(() => marked.parse(body) as string, [body]);
+  const html = useMemo(() => {
+    const rawHtml = marked.parse(body) as string;
+    // Highlight normative RFC 2119 keywords in rendered body (inside paragraphs, list items, table cells)
+    return rawHtml.replace(
+      /(<p[^>]*>|<li>|<td[^>]*>)(.*?)(<\/p>|<\/li>|<\/td>)/gs,
+      (_, openTag, inner, closeTag) => {
+        const highlighted = inner.replace(
+          /\b(MUST NOT|MUST|REQUIRED|SHALL NOT|SHALL|SHOULD NOT|SHOULD|NOT RECOMMENDED|RECOMMENDED|OPTIONAL|MAY)\b/g,
+          (kw: string) =>
+            `<mark class="rounded px-1 py-0.5 font-mono text-[11px] font-bold bg-amber-100 dark:bg-amber-950/70 text-amber-900 dark:text-amber-200 border border-amber-300 dark:border-amber-700/60 shadow-2xs">${kw}</mark>`
+        );
+        return `${openTag}${highlighted}${closeTag}`;
+      }
+    );
+  }, [body]);
 
   const copy = async () => {
     try {
