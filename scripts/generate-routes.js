@@ -58,6 +58,9 @@ for (const r of routes) {
   routeHtml = routeHtml.replace(/<meta name="twitter:url" content=".*?" \/>/, `<meta name="twitter:url" content="${r.canonical}" />`);
   routeHtml = routeHtml.replace(/<link rel="canonical" href=".*?" \/>/, `<link rel="canonical" href="${r.canonical}" />`);
 
+  // Ensure all asset paths are root-relative (avoid ./assets on nested paths)
+  routeHtml = routeHtml.replace(/(src|href)="\.\/(assets|favicon|icon|site)/g, '$1="/$2');
+
   const targetPath = path.join(targetDir, "index.html");
   fs.writeFileSync(targetPath, routeHtml, "utf-8");
   console.log(`Generated ${r.path}/index.html`);
