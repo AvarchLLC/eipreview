@@ -1,4 +1,4 @@
-import { BookOpen, ShieldCheck, Sparkles, X } from "lucide-react";
+import { BookOpen, ExternalLink, ShieldCheck, Sparkles, X } from "lucide-react";
 
 interface Props {
   onClose: () => void;
@@ -208,6 +208,64 @@ export function GuideDialog({ onClose }: Props) {
                   </span>
                 </div>
               ))}
+            </div>
+          </div>
+
+          {/* Official Documentation & Resources */}
+          <div className="space-y-2 pt-2 border-t border-border">
+            <h4 className="text-[11px] font-semibold uppercase tracking-wider text-muted">Official Documentation & Resources</h4>
+            <div className="grid grid-cols-1 sm:grid-cols-2 gap-2 text-xs">
+              <a
+                href="https://eips.ethereum.org/EIPS/eip-1"
+                target="_blank"
+                rel="noreferrer"
+                className="flex items-center justify-between p-2.5 rounded-xl border border-border bg-card hover:bg-zinc-50 dark:hover:bg-zinc-800/60 transition-colors group"
+              >
+                <div>
+                  <p className="font-semibold text-fg text-xs group-hover:text-indigo-600 dark:group-hover:text-indigo-400">EIP-1 Specification</p>
+                  <p className="text-[11px] text-muted">Official structure & guidelines</p>
+                </div>
+                <ExternalLink className="h-3.5 w-3.5 text-muted opacity-60 group-hover:opacity-100" />
+              </a>
+
+              <a
+                href="https://github.com/ethereum/EIPs/blob/master/CONTRIBUTING.md"
+                target="_blank"
+                rel="noreferrer"
+                className="flex items-center justify-between p-2.5 rounded-xl border border-border bg-card hover:bg-zinc-50 dark:hover:bg-zinc-800/60 transition-colors group"
+              >
+                <div>
+                  <p className="font-semibold text-fg text-xs group-hover:text-indigo-600 dark:group-hover:text-indigo-400">CONTRIBUTING.md</p>
+                  <p className="text-[11px] text-muted">Ethereum PR & editorial rules</p>
+                </div>
+                <ExternalLink className="h-3.5 w-3.5 text-muted opacity-60 group-hover:opacity-100" />
+              </a>
+
+              <a
+                href="https://github.com/AvarchLLC/eipreview"
+                target="_blank"
+                rel="noreferrer"
+                className="flex items-center justify-between p-2.5 rounded-xl border border-border bg-card hover:bg-zinc-50 dark:hover:bg-zinc-800/60 transition-colors group"
+              >
+                <div>
+                  <p className="font-semibold text-fg text-xs group-hover:text-indigo-600 dark:group-hover:text-indigo-400">EIP Review Repository</p>
+                  <p className="text-[11px] text-muted">Open source codebase & issues</p>
+                </div>
+                <ExternalLink className="h-3.5 w-3.5 text-muted opacity-60 group-hover:opacity-100" />
+              </a>
+
+              <a
+                href="https://eipsinsight.com"
+                target="_blank"
+                rel="noreferrer"
+                className="flex items-center justify-between p-2.5 rounded-xl border border-border bg-card hover:bg-zinc-50 dark:hover:bg-zinc-800/60 transition-colors group"
+              >
+                <div>
+                  <p className="font-semibold text-fg text-xs group-hover:text-indigo-600 dark:group-hover:text-indigo-400">EIPsInsight Analytics</p>
+                  <p className="text-[11px] text-muted">Proposals tracking & insights</p>
+                </div>
+                <ExternalLink className="h-3.5 w-3.5 text-muted opacity-60 group-hover:opacity-100" />
+              </a>
             </div>
           </div>
         </div>

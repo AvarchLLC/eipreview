@@ -628,40 +628,8 @@ export default function App() {
               <span className="text-indigo-600 dark:text-indigo-400 font-medium">Open Source</span>
             </div>
 
-            <div className="flex items-center gap-3 text-[11px]">
-              <button
-                onClick={(e) => navigateTo({ page: "landing" }, e)}
-                className="text-muted hover:text-fg transition-colors cursor-pointer"
-              >
-                Landing Page & Architecture
-              </button>
-              <span className="text-muted/40">·</span>
-              <a
-                href="https://github.com/ethereum/EIPs/blob/master/CONTRIBUTING.md"
-                target="_blank"
-                rel="noreferrer"
-                className="hover:text-fg transition-colors"
-              >
-                CONTRIBUTING.md
-              </a>
-              <span className="text-muted/40">·</span>
-              <a
-                href="https://github.com/AvarchLLC/eipreview"
-                target="_blank"
-                rel="noreferrer"
-                className="hover:text-fg transition-colors"
-              >
-                GitHub Repository
-              </a>
-              <span className="text-muted/40">·</span>
-              <a
-                href="https://eips.ethereum.org"
-                target="_blank"
-                rel="noreferrer"
-                className="hover:text-fg transition-colors"
-              >
-                eips.ethereum.org
-              </a>
+            <div className="text-[11px] text-muted">
+              Pure client-side proposal workspace · No server telemetry
             </div>
           </div>
         </div>

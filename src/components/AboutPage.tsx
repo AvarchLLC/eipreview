@@ -426,37 +426,22 @@ export function AboutPage({ onNavigate, theme, onToggleTheme }: Props) {
             <span className="font-semibold text-fg">EIP Review</span>
             <span>·</span>
             <span>Released under the MIT License</span>
+            <span>·</span>
+            <span className="text-indigo-600 dark:text-indigo-400 font-medium">Open Source</span>
           </div>
-          <div className="flex items-center gap-4">
-            <button
-              onClick={(e) => onNavigate({ tab: "new" }, e)}
-              className="text-fg hover:underline font-medium cursor-pointer"
-            >
-              Launch Workspace
-            </button>
+          <div>
             <a
-              href="https://github.com/ethereum/EIPs/blob/master/CONTRIBUTING.md"
+              href="https://eipsinsight.com"
               target="_blank"
               rel="noreferrer"
-              className="hover:text-fg transition-colors"
+              className="inline-flex items-center gap-1.5 text-xs text-muted hover:text-fg transition-colors group"
             >
-              CONTRIBUTING.md
-            </a>
-            <a
-              href="https://github.com/AvarchLLC/eipreview"
-              target="_blank"
-              rel="noreferrer"
-              className="hover:text-fg transition-colors"
-            >
-              GitHub Repository
-            </a>
-            <a
-              href="https://eips.ethereum.org/EIPS/eip-1"
-              target="_blank"
-              rel="noreferrer"
-              className="hover:text-fg transition-colors"
-            >
-              EIP-1 Spec
+              <span>Built with</span>
+              <Heart className="h-3 w-3 text-rose-500 fill-rose-500 group-hover:scale-110 transition-transform" />
+              <span>by</span>
+              <span className="font-semibold text-fg underline decoration-indigo-400 underline-offset-2">
+                EIPsInsight
+              </span>
             </a>
           </div>
         </div>
