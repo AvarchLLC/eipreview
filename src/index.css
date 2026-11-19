@@ -3,48 +3,67 @@
 /* Class-based dark mode (toggle), defaulting to the system preference. */
 @custom-variant dark (&:where(.dark, .dark *));
 
+/* ───────────────────────────────────────────────────────────────
+   Light theme — Untitled UI / Linear inspired clean palette
+   ─────────────────────────────────────────────────────────────── */
 :root {
-  --bg: #fcfcfb;
+  --bg: #fafafa;
   --card: #ffffff;
   --elevated: #ffffff;
-  --fg: #16181d;
-  --body: #454851;
-  --muted: #6f737c;
-  --border: #e7e7e1;
-  --border-strong: #d8d8d1;
-  --primary: #157a4e;
+  --fg: #09090b;
+  --body: #27272a;
+  --muted: #71717a;
+  --border: #e4e4e7;
+  --border-strong: #d4d4d8;
+  --primary: #18181b;
+  --primary-hover: #27272a;
   --primary-fg: #ffffff;
-  --primary-soft: #ecf4ef;
-  --code: #f5f6f3;
-  --error: #c62f3b;
-  --error-soft: #fbeaec;
-  --warning: #b56a09;
-  --warning-soft: #fbf0e0;
+  --primary-soft: #f4f4f5;
+  --code: #f4f4f5;
+  --success: #059669;
+  --success-soft: #ecfdf5;
+  --error: #e11d48;
+  --error-soft: #fff1f2;
+  --warning: #d97706;
+  --warning-soft: #fffbeb;
   --info: #2563eb;
-  --info-soft: #e8eefc;
+  --info-soft: #eff6ff;
+  --accent: #4f46e5;
+  --accent-soft: #eef2ff;
 }
 
+/* ───────────────────────────────────────────────────────────────
+   Dark theme — Sleek Zinc/OLED palette
+   ─────────────────────────────────────────────────────────────── */
 .dark {
-  --bg: #0d0f12;
-  --card: #15181d;
-  --elevated: #1a1e24;
-  --fg: #f2f3f0;
-  --body: #c4c8ce;
-  --muted: #868b94;
-  --border: #262b31;
-  --border-strong: #333942;
-  --primary: #37b682;
-  --primary-fg: #06120c;
-  --primary-soft: #11271d;
-  --code: #15181d;
-  --error: #f1707a;
-  --error-soft: #2a1618;
-  --warning: #e0a44a;
-  --warning-soft: #271d10;
-  --info: #6ea0f6;
-  --info-soft: #141c2b;
+  --bg: #09090b;
+  --card: #121215;
+  --elevated: #18181b;
+  --fg: #f4f4f5;
+  --body: #d4d4d8;
+  --muted: #a1a1aa;
+  --border: #27272a;
+  --border-strong: #3f3f46;
+  --primary: #fafafa;
+  --primary-hover: #e4e4e7;
+  --primary-fg: #09090b;
+  --primary-soft: #18181b;
+  --code: #18181b;
+  --success: #10b981;
+  --success-soft: #06281c;
+  --error: #f43f5e;
+  --error-soft: #2e1017;
+  --warning: #f59e0b;
+  --warning-soft: #2b1d07;
+  --info: #3b82f6;
+  --info-soft: #0e1d38;
+  --accent: #6366f1;
+  --accent-soft: #1e1b4b;
 }
 
+/* ───────────────────────────────────────────────────────────────
+   Tailwind v4 @theme tokens
+   ─────────────────────────────────────────────────────────────── */
 @theme inline {
   --color-bg: var(--bg);
   --color-card: var(--card);
@@ -55,24 +74,32 @@
   --color-border: var(--border);
   --color-border-strong: var(--border-strong);
   --color-primary: var(--primary);
+  --color-primary-hover: var(--primary-hover);
   --color-primary-fg: var(--primary-fg);
   --color-primary-soft: var(--primary-soft);
   --color-code: var(--code);
+  --color-success: var(--success);
+  --color-success-soft: var(--success-soft);
   --color-error: var(--error);
   --color-error-soft: var(--error-soft);
   --color-warning: var(--warning);
   --color-warning-soft: var(--warning-soft);
   --color-info: var(--info);
   --color-info-soft: var(--info-soft);
+  --color-accent: var(--accent);
+  --color-accent-soft: var(--accent-soft);
 
-  --font-sans: "Inter", ui-sans-serif, system-ui, sans-serif;
-  --font-mono: "JetBrains Mono", ui-monospace, monospace;
+  --font-sans: "Plus Jakarta Sans", "Inter", -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif;
+  --font-mono: "JetBrains Mono", ui-monospace, SFMono-Regular, Menlo, monospace;
 }
 
+/* ───────────────────────────────────────────────────────────────
+   Base resets & typography
+   ─────────────────────────────────────────────────────────────── */
 html,
 body,
 #root {
-  height: 100%;
+  min-height: 100%;
 }
 
 body {
@@ -81,116 +108,132 @@ body {
   color: var(--body);
   font-family: var(--font-sans);
   -webkit-font-smoothing: antialiased;
+  -moz-osx-font-smoothing: grayscale;
   text-rendering: optimizeLegibility;
+  letter-spacing: -0.011em;
 }
 
-/* Quiet, consistent scrollbars. */
+/* Minimal subtle scrollbars */
 * {
   scrollbar-width: thin;
-  scrollbar-color: var(--border-strong) transparent;
+  scrollbar-color: var(--border) transparent;
 }
 *::-webkit-scrollbar {
-  width: 10px;
-  height: 10px;
+  width: 6px;
+  height: 6px;
 }
 *::-webkit-scrollbar-thumb {
+  background: var(--border);
+  border-radius: 9999px;
+}
+*::-webkit-scrollbar-thumb:hover {
   background: var(--border-strong);
-  border-radius: 8px;
-  border: 2px solid transparent;
-  background-clip: padding-box;
 }
 
-/* Rendered Markdown preview. */
+/* ───────────────────────────────────────────────────────────────
+   Rendered Markdown preview (prose-eip) — Editorial & Notion feel
+   ─────────────────────────────────────────────────────────────── */
 .prose-eip {
   color: var(--body);
-  font-size: 16px;
-  line-height: 1.7;
+  font-size: 15px;
+  line-height: 1.75;
 }
 .prose-eip h1 {
-  font-size: 30px;
+  font-size: 28px;
   font-weight: 700;
   color: var(--fg);
   margin: 0 0 16px;
-  letter-spacing: -0.4px;
+  letter-spacing: -0.025em;
+  line-height: 1.25;
 }
 .prose-eip h2 {
-  font-size: 23px;
+  font-size: 20px;
   font-weight: 600;
   color: var(--fg);
-  margin: 32px 0 12px;
+  margin: 32px 0 14px;
   padding-bottom: 8px;
   border-bottom: 1px solid var(--border);
+  letter-spacing: -0.02em;
 }
 .prose-eip h3 {
-  font-size: 19px;
+  font-size: 16px;
   font-weight: 600;
   color: var(--fg);
   margin: 24px 0 10px;
+  letter-spacing: -0.015em;
 }
 .prose-eip p {
-  margin: 0 0 14px;
+  margin: 0 0 16px;
 }
 .prose-eip ul,
 .prose-eip ol {
-  margin: 0 0 14px;
-  padding-left: 24px;
+  margin: 0 0 16px;
+  padding-left: 20px;
 }
 .prose-eip li {
-  margin: 4px 0;
+  margin: 6px 0;
 }
 .prose-eip a {
-  color: var(--primary);
+  color: var(--fg);
   text-decoration: underline;
-  text-underline-offset: 2px;
+  text-underline-offset: 3px;
+  font-weight: 500;
+  transition: opacity 0.15s ease;
+}
+.prose-eip a:hover {
+  opacity: 0.7;
 }
 .prose-eip code {
   font-family: var(--font-mono);
-  font-size: 0.88em;
+  font-size: 0.86em;
   background: var(--code);
   border: 1px solid var(--border);
-  border-radius: 5px;
-  padding: 1px 5px;
+  border-radius: 6px;
+  padding: 2px 6px;
+  color: var(--fg);
 }
 .prose-eip pre {
   background: var(--code);
   border: 1px solid var(--border);
-  border-radius: 10px;
+  border-radius: 8px;
   padding: 16px;
   overflow-x: auto;
-  margin: 0 0 16px;
+  margin: 0 0 20px;
 }
 .prose-eip pre code {
   border: none;
   background: transparent;
   padding: 0;
+  color: inherit;
 }
 .prose-eip table {
   width: 100%;
   border-collapse: collapse;
-  margin: 0 0 16px;
-  font-size: 15px;
+  margin: 0 0 20px;
+  font-size: 14px;
 }
 .prose-eip th,
 .prose-eip td {
   border: 1px solid var(--border);
-  padding: 8px 12px;
+  padding: 10px 14px;
   text-align: left;
 }
 .prose-eip th {
-  background: var(--code);
+  background: var(--primary-soft);
   font-weight: 600;
   color: var(--fg);
 }
 .prose-eip blockquote {
-  border-left: 3px solid var(--border-strong);
-  margin: 0 0 16px;
-  padding: 2px 0 2px 16px;
+  border-left: 3px solid var(--fg);
+  margin: 0 0 20px;
+  padding: 4px 0 4px 16px;
   color: var(--muted);
+  font-style: italic;
 }
 .prose-eip hr {
   border: none;
   border-top: 1px solid var(--border);
-  margin: 24px 0;
+  margin: 32px 0;
 }
 
 @media (prefers-reduced-motion: reduce) {

@@ -3,15 +3,21 @@
   <head>
     <meta charset="UTF-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-    <title>EIP Review — author and validate Ethereum proposals</title>
+    <title>EIP Review — Author & Validate Ethereum Proposals</title>
     <meta
       name="description"
-      content="A client-side IDE for authoring, validating, and reviewing Ethereum proposals (EIPs, ERCs, RIPs). Built with love from EIPsInsight."
+      content="A seamless client-side IDE for authoring, validating, and reviewing Ethereum proposals (EIPs, ERCs, RIPs). Built by EIPsInsight."
+    />
+    <!-- Clean Ethereum Diamond SVG Favicon -->
+    <link
+      rel="icon"
+      type="image/svg+xml"
+      href="data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 32 32' fill='none'><path d='M16 2L6 18.5L16 23.5L26 18.5L16 2Z' fill='%2318181b'/><path d='M6 18.5L16 30L26 18.5L16 23.5L6 18.5Z' fill='%2371717a'/></svg>"
     />
     <link rel="preconnect" href="https://fonts.googleapis.com" />
     <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
     <link
-      href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&family=JetBrains+Mono:wght@400;500;600&display=swap"
+      href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600&family=JetBrains+Mono:wght@400;500;600&family=Plus+Jakarta+Sans:wght@400;500;600;700;800&display=swap"
       rel="stylesheet"
     />
     <!-- Set theme before paint to avoid a flash. -->
@@ -25,7 +31,7 @@
       })();
     </script>
   </head>
-  <body>
+  <body class="bg-bg text-fg antialiased selection:bg-zinc-200 selection:text-zinc-900 dark:selection:bg-zinc-800 dark:selection:text-zinc-100">
     <div id="root"></div>
     <script type="module" src="/src/main.tsx"></script>
   </body>

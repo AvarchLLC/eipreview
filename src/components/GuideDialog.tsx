@@ -1,4 +1,4 @@
-import { BookOpen, X } from "lucide-react";
+import { BookOpen, ShieldCheck, Sparkles, X } from "lucide-react";
 
 interface Props {
   onClose: () => void;
@@ -6,136 +6,226 @@ interface Props {
 
 export function GuideDialog({ onClose }: Props) {
   return (
-    <div className="fixed inset-0 z-[60] flex items-center justify-center bg-black/40 p-4 backdrop-blur-sm" onClick={onClose}>
+    <div
+      className="fixed inset-0 z-[60] flex items-center justify-center bg-black/50 p-4 backdrop-blur-xs"
+      onClick={onClose}
+    >
       <div
-        className="flex max-h-[88vh] w-full max-w-2xl flex-col overflow-hidden rounded-xl border border-border bg-bg shadow-2xl"
+        className="flex max-h-[90vh] w-full max-w-2xl flex-col overflow-hidden rounded-2xl border border-border bg-card shadow-2xl"
         onClick={(e) => e.stopPropagation()}
       >
+        {/* Header */}
         <div className="flex items-center justify-between border-b border-border px-5 py-4">
-          <div className="flex items-center gap-2">
-            <BookOpen className="h-5 w-5 text-primary" />
-            <h3 className="text-base font-semibold text-fg">How it works</h3>
+          <div className="flex items-center gap-2.5">
+            <div className="flex h-8 w-8 items-center justify-center rounded-lg bg-indigo-50 dark:bg-indigo-950/50 text-indigo-600 dark:text-indigo-400 border border-indigo-200/60 dark:border-indigo-800/60 shadow-xs">
+              <BookOpen className="h-4 w-4" />
+            </div>
+            <div>
+              <div className="flex items-center gap-2">
+                <h3 className="text-sm font-semibold text-fg">How Validation Works</h3>
+                <span className="rounded-full bg-indigo-50 dark:bg-indigo-950/50 text-indigo-700 dark:text-indigo-300 border border-indigo-200/60 dark:border-indigo-800/60 px-2 py-0.5 text-[10px] font-medium">
+                  CI Parity
+                </span>
+              </div>
+              <p className="text-[11px] text-muted">Authoring pipeline & validation workflow</p>
+            </div>
           </div>
-          <button onClick={onClose} className="rounded-md p-1.5 text-muted transition-colors hover:bg-card hover:text-fg">
+          <button
+            onClick={onClose}
+            className="rounded-lg p-1.5 text-muted hover:text-fg hover:bg-zinc-100 dark:hover:bg-zinc-800 transition-colors"
+          >
             <X className="h-4 w-4" />
           </button>
         </div>
 
-        <div className="min-h-0 flex-1 space-y-6 overflow-y-auto p-5">
+        {/* Content */}
+        <div className="min-h-0 flex-1 space-y-6 overflow-y-auto p-5 sm:p-6 text-xs text-body leading-relaxed">
           <section>
-            <p className="text-sm leading-relaxed text-body">
-              This is a guided way to write and check an Ethereum proposal. Fill in the preamble and sections, and it builds the
-              correct Markdown for you. When you validate, your draft is checked against the same rules the editors enforce in CI,
-              plus a few authoring checks of our own. You can also import a published proposal or an open pull request to review it.
+            <p>
+              EIP Review provides an in-browser authoring environment that aligns proposal drafting with the exact editorial rules and automated checks enforced by Ethereum's EIP, ERC, and RIP editors.
             </p>
           </section>
 
-          {/* Pipeline diagram */}
-          <section className="overflow-x-auto rounded-lg border border-border bg-card/60 p-4">
-            <svg viewBox="0 0 640 150" className="w-full min-w-[560px]" role="img" aria-label="Validation pipeline">
+          {/* Clean Branching Pipeline Diagram */}
+          <section className="overflow-x-auto rounded-xl border border-border bg-zinc-50/70 dark:bg-zinc-900/40 p-4 sm:p-5">
+            <svg viewBox="0 0 660 144" className="w-full min-w-[600px]" role="img" aria-label="Validation workflow">
               <defs>
-                <marker id="ar" markerWidth="8" markerHeight="8" refX="6" refY="3" orient="auto">
-                  <path d="M0,0 L6,3 L0,6 Z" fill="var(--muted)" />
+                <marker id="ar" markerWidth="6" markerHeight="6" refX="5" refY="3" orient="auto">
+                  <path d="M0,0 L6,3 L0,6 Z" fill="var(--color-muted)" opacity="0.8" />
+                </marker>
+                <marker id="ar-success" markerWidth="6" markerHeight="6" refX="5" refY="3" orient="auto">
+                  <path d="M0,0 L6,3 L0,6 Z" fill="var(--color-success)" />
                 </marker>
               </defs>
+
+              {/* 1. Draft Source Box */}
               <g>
-                <rect x="6" y="52" width="120" height="46" rx="9" fill="var(--primary-soft)" stroke="var(--primary)" strokeWidth="1.5" />
-                <text x="66" y="72" textAnchor="middle" fontSize="13" fontWeight="600" fill="var(--fg)">Your draft</text>
-                <text x="66" y="88" textAnchor="middle" fontSize="10" fill="var(--muted)">form or import</text>
+                <rect x="8" y="48" width="116" height="48" rx="8" fill="var(--color-card)" stroke="var(--color-border-strong)" strokeWidth="1" />
+                <text x="66" y="69" textAnchor="middle" fontSize="12" fontWeight="600" fill="var(--color-fg)">Your Draft</text>
+                <text x="66" y="84" textAnchor="middle" fontSize="10" fill="var(--color-muted)">Editor or Import</text>
               </g>
-              <line x1="126" y1="75" x2="168" y2="75" stroke="var(--muted)" strokeWidth="1.5" markerEnd="url(#ar)" />
+
+              {/* Branching curves from Draft into CI Rules and Authoring Checks */}
+              <path
+                d="M 124 72 C 146 72, 146 36, 168 36"
+                fill="none"
+                stroke="var(--color-muted)"
+                strokeWidth="1.2"
+                strokeDasharray="3 3"
+                markerEnd="url(#ar)"
+              />
+              <path
+                d="M 124 72 C 146 72, 146 108, 168 108"
+                fill="none"
+                stroke="var(--color-muted)"
+                strokeWidth="1.2"
+                strokeDasharray="3 3"
+                markerEnd="url(#ar)"
+              />
+
+              {/* 2. Top Branch: CI Rules (Blue/Info) */}
               <g>
-                <rect x="168" y="20" width="150" height="46" rx="9" fill="var(--card)" stroke="var(--border-strong)" strokeWidth="1.5" />
-                <text x="243" y="40" textAnchor="middle" fontSize="12" fontWeight="600" fill="var(--fg)">CI rules</text>
-                <text x="243" y="56" textAnchor="middle" fontSize="10" fill="var(--muted)">preamble · sections · links</text>
-                <rect x="168" y="84" width="150" height="46" rx="9" fill="var(--primary-soft)" stroke="var(--primary)" strokeWidth="1.5" />
-                <text x="243" y="104" textAnchor="middle" fontSize="12" fontWeight="600" fill="var(--fg)">Authoring checks</text>
-                <text x="243" y="120" textAnchor="middle" fontSize="10" fill="var(--muted)">RFC 2119 · prose · TODOs</text>
+                <rect x="170" y="14" width="154" height="44" rx="8" fill="var(--color-card)" stroke="var(--color-info)" strokeWidth="1" strokeOpacity="0.5" />
+                <circle cx="186" cy="36" r="3.5" fill="var(--color-info)" />
+                <text x="246" y="32" textAnchor="middle" fontSize="11" fontWeight="600" fill="var(--color-fg)">CI Blocking Rules</text>
+                <text x="246" y="47" textAnchor="middle" fontSize="9.5" fill="var(--color-muted)">eipw · headers · CC0 license</text>
               </g>
-              <line x1="318" y1="75" x2="360" y2="75" stroke="var(--muted)" strokeWidth="1.5" markerEnd="url(#ar)" />
+
+              {/* 3. Bottom Branch: Authoring Guidance (Purple/Accent) */}
               <g>
-                <rect x="360" y="40" width="130" height="70" rx="9" fill="var(--card)" stroke="var(--border-strong)" strokeWidth="1.5" />
-                <circle cx="382" cy="62" r="4" fill="var(--error)" />
-                <text x="394" y="66" fontSize="12" fill="var(--fg)">Errors</text>
-                <circle cx="382" cy="82" r="4" fill="var(--warning)" />
-                <text x="394" y="86" fontSize="12" fill="var(--fg)">Warnings</text>
-                <circle cx="382" cy="102" r="4" fill="var(--info)" />
-                <text x="394" y="106" fontSize="12" fill="var(--fg)">Suggestions</text>
+                <rect x="170" y="86" width="154" height="44" rx="8" fill="var(--color-card)" stroke="var(--color-accent)" strokeWidth="1" strokeOpacity="0.5" />
+                <circle cx="186" cy="108" r="3.5" fill="var(--color-accent)" />
+                <text x="246" y="104" textAnchor="middle" fontSize="11" fontWeight="600" fill="var(--color-fg)">Authoring Guidance</text>
+                <text x="246" y="119" textAnchor="middle" fontSize="9.5" fill="var(--color-muted)">RFC 2119 · clarity · formatting</text>
               </g>
-              <line x1="490" y1="75" x2="532" y2="75" stroke="var(--muted)" strokeWidth="1.5" markerEnd="url(#ar)" />
+
+              {/* Merging curves from Rules into Validation Engine */}
+              <path
+                d="M 324 36 C 346 36, 346 72, 364 72"
+                fill="none"
+                stroke="var(--color-muted)"
+                strokeWidth="1.2"
+                markerEnd="url(#ar)"
+              />
+              <path
+                d="M 324 108 C 346 108, 346 72, 364 72"
+                fill="none"
+                stroke="var(--color-muted)"
+                strokeWidth="1.2"
+                markerEnd="url(#ar)"
+              />
+
+              {/* 4. Validation Engine / Findings Box */}
               <g>
-                <rect x="532" y="52" width="102" height="46" rx="9" fill="var(--primary-soft)" stroke="var(--primary)" strokeWidth="1.5" />
-                <text x="583" y="79" textAnchor="middle" fontSize="12" fontWeight="600" fill="var(--fg)">Submit PR</text>
+                <rect x="368" y="28" width="138" height="88" rx="8" fill="var(--color-card)" stroke="var(--color-border-strong)" strokeWidth="1" />
+                <text x="437" y="46" textAnchor="middle" fontSize="10" fontWeight="600" fill="var(--color-muted)" letterSpacing="0.05em">INSPECTOR</text>
+
+                {/* Error dot */}
+                <circle cx="388" cy="62" r="3" fill="var(--color-error)" />
+                <text x="398" y="65" fontSize="10.5" fontWeight="500" fill="var(--color-fg)">Errors (block PR)</text>
+
+                {/* Warning dot */}
+                <circle cx="388" cy="80" r="3" fill="var(--color-warning)" />
+                <text x="398" y="83" fontSize="10.5" fontWeight="500" fill="var(--color-fg)">Warnings (advisories)</text>
+
+                {/* Info dot */}
+                <circle cx="388" cy="98" r="3" fill="var(--color-info)" />
+                <text x="398" y="101" fontSize="10.5" fontWeight="500" fill="var(--color-fg)">Suggestions (polish)</text>
+              </g>
+
+              {/* Arrow from Engine to Ready */}
+              <line x1="506" y1="72" x2="538" y2="72" stroke="var(--color-success)" strokeWidth="1.5" markerEnd="url(#ar-success)" />
+
+              {/* 5. Ready for PR Target Box (Subtle Emerald Card) */}
+              <g>
+                <rect
+                  x="542"
+                  y="48"
+                  width="110"
+                  height="48"
+                  rx="8"
+                  fill="var(--color-success-soft)"
+                  stroke="var(--color-success)"
+                  strokeWidth="1.2"
+                />
+                <circle cx="560" cy="72" r="6" fill="var(--color-success)" />
+                <path d="M557 72 L559 74 L563 70" fill="none" stroke="#ffffff" strokeWidth="1.4" strokeLinecap="round" strokeLinejoin="round" />
+                <text x="602" y="69" textAnchor="middle" fontSize="11" fontWeight="700" fill="var(--color-success)">Ready for PR</text>
+                <text x="602" y="83" textAnchor="middle" fontSize="9.5" fill="var(--color-muted)">Submittable</text>
               </g>
             </svg>
           </section>
 
-          {/* Severity legend */}
-          <section className="grid grid-cols-1 gap-2 sm:grid-cols-3">
-            <Legend tone="error" title="Errors" text="Block a PR. CI will reject them, so fix before submitting." />
-            <Legend tone="warning" title="Warnings" text="Strongly recommended. Editors usually ask for these." />
-            <Legend tone="info" title="Suggestions" text="Optional polish and style nudges." />
-          </section>
-
-          {/* CI vs authoring */}
-          <section className="space-y-2">
-            <h4 className="text-[11px] font-semibold uppercase tracking-wider text-muted">Two kinds of check</h4>
-            <div className="rounded-lg border border-border bg-card/40 p-3">
-              <span className="mb-1 inline-block rounded border border-border bg-card px-1.5 py-0.5 font-mono text-[9px] font-semibold uppercase text-muted">CI</span>
-              <p className="text-xs text-body">
-                Aligned with what CI enforces (the eipw validator, Markdown lint, section and copyright rules). If one of these is an
-                error, your PR will not pass until it is fixed.
-              </p>
-            </div>
-            <div className="rounded-lg border border-primary/25 bg-primary-soft p-3">
-              <span className="mb-1 inline-block rounded border border-primary/30 bg-card px-1.5 py-0.5 font-mono text-[9px] font-semibold uppercase text-primary">guide</span>
-              <p className="text-xs text-body">
-                EIPsInsight authoring guidance that CI does not enforce (RFC 2119 boilerplate, leftover TODOs, generic Security
-                Considerations, LaTeX that would render literally). These never block a PR, they help you write a cleaner draft.
-              </p>
-            </div>
-          </section>
-
-          {/* What's checked */}
-          <section className="space-y-1.5">
-            <h4 className="text-[11px] font-semibold uppercase tracking-wider text-muted">What gets checked</h4>
-            {[
-              "Preamble: required fields, order, repo-specific status / type / category, dates, filename",
-              "Title and description: length limits, Title Case, one-sentence rules",
-              "Author and discussions-to: a GitHub handle, an Ethereum Magicians topic",
-              "Sections: required sections by type, correct order, exact CC0 copyright",
-              "Normative language: RFC 2119 / 8174 boilerplate and keyword scope",
-              "Prose and links: EIP-N format, allowed links, no LaTeX, no template artifacts",
-            ].map((t) => (
-              <div key={t} className="flex items-start gap-2 rounded-lg border border-border bg-card/40 px-3 py-2">
-                <span className="mt-1.5 h-1.5 w-1.5 shrink-0 rounded-full bg-primary/60" />
-                <p className="text-xs text-body">{t}</p>
+          {/* Severity explanation with subtle color cards */}
+          <div className="grid grid-cols-1 gap-2.5 sm:grid-cols-3">
+            <div className="rounded-xl border border-error/25 bg-error-soft/60 p-3">
+              <div className="flex items-center gap-1.5 mb-1">
+                <span className="h-2 w-2 rounded-full bg-error" />
+                <p className="font-semibold text-error text-[11px] uppercase tracking-wider">Errors</p>
               </div>
-            ))}
-          </section>
+              <p className="text-[11px] text-body">Required to fix. GitHub CI actions (eipw) will reject the PR if any error remains.</p>
+            </div>
+            <div className="rounded-xl border border-warning/25 bg-warning-soft/60 p-3">
+              <div className="flex items-center gap-1.5 mb-1">
+                <span className="h-2 w-2 rounded-full bg-warning" />
+                <p className="font-semibold text-warning text-[11px] uppercase tracking-wider">Warnings</p>
+              </div>
+              <p className="text-[11px] text-body">Strongly recommended fixes that EIP editors typically request before merging.</p>
+            </div>
+            <div className="rounded-xl border border-info/25 bg-info-soft/60 p-3">
+              <div className="flex items-center gap-1.5 mb-1">
+                <span className="h-2 w-2 rounded-full bg-info" />
+                <p className="font-semibold text-info text-[11px] uppercase tracking-wider">Suggestions</p>
+              </div>
+              <p className="text-[11px] text-body">Optional editorial suggestions for clarity, formatting polish, and normative keyword precision.</p>
+            </div>
+          </div>
 
-          <p className="text-[11px] leading-relaxed text-muted">
-            Each finding shows the line it came from, click the L## badge to jump to it. A clean run here means your draft matches
-            what CI expects, but editors still review the substance of a proposal.
-          </p>
+          {/* Checklist with subtle badges */}
+          <div className="space-y-2">
+            <div className="flex items-center justify-between">
+              <h4 className="text-[11px] font-semibold uppercase tracking-wider text-muted">What gets verified</h4>
+              <span className="inline-flex items-center gap-1 text-[10px] text-indigo-600 dark:text-indigo-400 font-medium">
+                <ShieldCheck className="h-3 w-3" /> Real-time validation
+              </span>
+            </div>
+            <div className="grid grid-cols-1 sm:grid-cols-2 gap-2">
+              {[
+                { title: "YAML Preamble", desc: "Required fields, ordering, status, category, date formats", tag: "CI", color: "text-blue-600 bg-blue-50 dark:bg-blue-950/40 border-blue-200 dark:border-blue-800" },
+                { title: "Length Constraints", desc: "Title ≤ 44 chars, Description ≤ 140 chars, Title Case", tag: "CI", color: "text-blue-600 bg-blue-50 dark:bg-blue-950/40 border-blue-200 dark:border-blue-800" },
+                { title: "Author & Discussions-To", desc: "GitHub handles & Ethereum Magicians topic URL", tag: "CI", color: "text-blue-600 bg-blue-50 dark:bg-blue-950/40 border-blue-200 dark:border-blue-800" },
+                { title: "Required Sections", desc: "Ordered sections & verbatim CC0 Copyright waiver", tag: "CI", color: "text-blue-600 bg-blue-50 dark:bg-blue-950/40 border-blue-200 dark:border-blue-800" },
+                { title: "Normative Keywords", desc: "RFC 2119 / 8174 scope & boilerplate inclusion", tag: "Guide", color: "text-indigo-600 bg-indigo-50 dark:bg-indigo-950/40 border-indigo-200 dark:border-indigo-800" },
+                { title: "Clean Prose & Links", desc: "Internal EIP-N links, no LaTeX, no stale placeholders", tag: "Guide", color: "text-indigo-600 bg-indigo-50 dark:bg-indigo-950/40 border-indigo-200 dark:border-indigo-800" },
+              ].map((item, idx) => (
+                <div key={idx} className="flex items-start justify-between gap-2 rounded-xl border border-border bg-card p-3 shadow-2xs">
+                  <div>
+                    <p className="font-semibold text-fg text-xs">{item.title}</p>
+                    <p className="text-[11px] text-muted mt-0.5">{item.desc}</p>
+                  </div>
+                  <span className={`shrink-0 rounded border px-1.5 py-0.5 text-[9px] font-mono font-medium ${item.color}`}>
+                    {item.tag}
+                  </span>
+                </div>
+              ))}
+            </div>
+          </div>
         </div>
 
-        <div className="flex justify-end border-t border-border bg-card/40 px-5 py-3">
-          <button onClick={onClose} className="rounded-lg border border-border bg-card px-4 py-2 text-xs font-medium text-fg transition-colors hover:bg-card/70">
+        {/* Footer */}
+        <div className="flex items-center justify-between border-t border-border bg-zinc-50/50 dark:bg-zinc-800/30 px-5 py-3">
+          <span className="text-[11px] text-muted flex items-center gap-1.5">
+            <Sparkles className="h-3 w-3 text-indigo-500" />
+            Click any line number (L##) in findings to jump directly in the editor.
+          </span>
+          <button
+            onClick={onClose}
+            className="rounded-lg border border-border bg-card px-4 py-1.5 text-xs font-medium text-fg shadow-xs hover:bg-zinc-50 dark:hover:bg-zinc-800 transition-colors"
+          >
             Got it
           </button>
         </div>
       </div>
-    </div>
-  );
-}
-
-function Legend({ tone, title, text }: { tone: "error" | "warning" | "info"; title: string; text: string }) {
-  const cls = tone === "error" ? "border-error/20 bg-error-soft text-error" : tone === "warning" ? "border-warning/20 bg-warning-soft text-warning" : "border-info/20 bg-info-soft text-info";
-  return (
-    <div className={`rounded-lg border p-3 ${cls}`}>
-      <p className="text-xs font-semibold">{title}</p>
-      <p className="mt-0.5 text-[11px] text-muted">{text}</p>
     </div>
   );
 }
