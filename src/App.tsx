@@ -1,4 +1,4 @@
-import { useCallback, useEffect, useMemo, useRef, useState } from "react";
+import { useCallback, useEffect, useMemo, useState } from "react";
 import { BookOpen, ExternalLink, Github, GitPullRequest, Heart } from "lucide-react";
 import { Toolbar } from "./components/Toolbar";
 import { Editor } from "./components/Editor";
@@ -161,7 +161,6 @@ export default function App() {
   const [tab, setTab] = useState<TabMode>("new");
   const [repo, setRepo] = useState<RepoKind>("eip");
   const [view, setView] = useState<ViewMode>("split");
-  const [outputTab, setOutputTab] = useState<"code" | "preview">("code");
 
   const [data, setData] = useState<ProposalData>({ ...EMPTY_PROPOSAL });
   const [markdown, setMarkdown] = useState<string>(() => generateMarkdown(EMPTY_PROPOSAL));
@@ -180,7 +179,6 @@ export default function App() {
   const [importedPr, setImportedPr] = useState<ImportedPr | null>(null);
 
   const [isMobile, setIsMobile] = useState(false);
-  const codeRef = useRef<HTMLTextAreaElement | null>(null);
 
   // Mobile detection: split pane collapses to one column on smaller screens.
   useEffect(() => {
@@ -220,12 +218,6 @@ export default function App() {
   const handleField = useCallback((key: ProposalField, value: string) => {
     setLastEdited("form");
     setData((prev) => ({ ...prev, [key]: value }));
-    setValidated(false);
-  }, []);
-
-  const handleMarkdown = useCallback((value: string) => {
-    setLastEdited("code");
-    setMarkdown(value);
     setValidated(false);
   }, []);
 
@@ -285,7 +277,7 @@ export default function App() {
     URL.revokeObjectURL(url);
   }, [markdown, repo, data.eip]);
 
-  // Synchronized bidirectional jump: scrolls BOTH left editor section and right code pane!
+  // Synchronized jump: scrolls and focuses the left editor field/section
   const handleJump = useCallback(
     (item: ValidationMessage) => {
       setShowValidation(false);
@@ -295,28 +287,11 @@ export default function App() {
         setView("split");
       }
 
-      // 1. Identify and highlight target on the LEFT (Editor pane)
+      // Identify and highlight target on the LEFT (Editor pane)
       const target = normalizeKey(item.field, item.section);
       if (target) {
         setHighlightTarget(target);
         window.setTimeout(() => setHighlightTarget(null), 3500);
-      }
-
-      // 2. Scroll and focus on the RIGHT (Markdown code pane)
-      if (item.line) {
-        setOutputTab("code");
-        window.setTimeout(() => {
-          const ta = codeRef.current;
-          if (!ta) return;
-          const lines = ta.value.split("\n");
-          let start = 0;
-          for (let i = 0; i < item.line! - 1 && i < lines.length; i++) {
-            start += lines[i].length + 1;
-          }
-          ta.focus();
-          ta.setSelectionRange(start, start + (lines[item.line! - 1]?.length ?? 0));
-          ta.scrollTop = Math.max(0, (item.line! - 4) * 22);
-        }, 80);
       }
     },
     [view]
@@ -453,13 +428,7 @@ export default function App() {
           )}
           {showOutput && (
             <div className={cn("bg-card", effectiveView === "split" ? "w-1/2" : "w-full")}>
-              <OutputPane
-                ref={codeRef}
-                markdown={markdown}
-                onMarkdownChange={handleMarkdown}
-                tab={outputTab}
-                onTab={setOutputTab}
-              />
+              <OutputPane markdown={markdown} />
             </div>
           )}
         </div>
