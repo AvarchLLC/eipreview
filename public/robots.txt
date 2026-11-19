@@ -1,0 +1,8 @@
+# EIP Review — Author & Validate Ethereum Proposals
+# https://github.com/AvarchLLC/eipreview
+
+User-agent: *
+Allow: /
+
+# Sitemaps
+Sitemap: https://eipreview.com/sitemap.xml
