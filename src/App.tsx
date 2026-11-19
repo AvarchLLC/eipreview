@@ -1,5 +1,5 @@
 import { useCallback, useEffect, useMemo, useState } from "react";
-import { BookOpen, ExternalLink, Github, GitPullRequest, Heart } from "lucide-react";
+import { BookOpen, ExternalLink, Github, GitPullRequest, Heart, Info } from "lucide-react";
 import { Toolbar } from "./components/Toolbar";
 import { Editor } from "./components/Editor";
 import { OutputPane } from "./components/OutputPane";
@@ -10,6 +10,7 @@ import { useTheme } from "./hooks/useTheme";
 import { EMPTY_PROPOSAL, generateMarkdown, parseMarkdown } from "./lib/markdown";
 import { validateProposal } from "./lib/validation";
 import { fetchProposal, importPr, repoFromFilename } from "./lib/github";
+import { parseCurrentRoute, buildRouteUrl } from "./lib/routes";
 import type {
   ImportedPr,
   ProposalData,
@@ -62,103 +63,11 @@ function normalizeKey(field?: string, section?: string): string | null {
 export default function App() {
   const { theme, toggle } = useTheme();
 
-  // Page routing state for /about
-  const [page, setPage] = useState<"editor" | "about">(() => {
-    if (typeof window !== "undefined") {
-      return window.location.pathname === "/about" || window.location.hash === "#/about"
-        ? "about"
-        : "editor";
-    }
-    return "editor";
-  });
-
-  useEffect(() => {
-    const onPop = () => {
-      const isAbout = window.location.pathname === "/about" || window.location.hash === "#/about";
-      const targetPage = isAbout ? "about" : "editor";
-      const supportsViewTransition =
-        typeof document !== "undefined" &&
-        "startViewTransition" in document &&
-        !window.matchMedia("(prefers-reduced-motion: reduce)").matches;
-
-      if (supportsViewTransition) {
-        (document as unknown as {
-          startViewTransition: (cb: () => void) => void;
-        }).startViewTransition(() => {
-          setPage(targetPage);
-        });
-      } else {
-        setPage(targetPage);
-      }
-    };
-    window.addEventListener("popstate", onPop);
-    window.addEventListener("hashchange", onPop);
-    return () => {
-      window.removeEventListener("popstate", onPop);
-      window.removeEventListener("hashchange", onPop);
-    };
-  }, []);
-
-  const navigateTo = (p: "editor" | "about", event?: React.MouseEvent | MouseEvent) => {
-    if (page === p) return;
-
-    const changePage = () => {
-      setPage(p);
-      try {
-        if (p === "about") {
-          window.history.pushState(null, "", "/about");
-        } else {
-          window.history.pushState(null, "", "/");
-        }
-      } catch {
-        // fallback
-      }
-    };
-
-    const supportsViewTransition =
-      typeof document !== "undefined" &&
-      "startViewTransition" in document &&
-      !window.matchMedia("(prefers-reduced-motion: reduce)").matches;
-
-    if (!supportsViewTransition) {
-      changePage();
-      return;
-    }
-
-    const x = event?.clientX ?? window.innerWidth / 2;
-    const y = event?.clientY ?? window.innerHeight / 2;
-    const endRadius = Math.hypot(
-      Math.max(x, window.innerWidth - x),
-      Math.max(y, window.innerHeight - y)
-    );
-
-    const transition = (document as unknown as {
-      startViewTransition: (cb: () => void) => { ready: Promise<void> };
-    }).startViewTransition(() => {
-      changePage();
-    });
-
-    transition.ready.then(() => {
-      const clipPath = [
-        `circle(0px at ${x}px ${y}px)`,
-        `circle(${endRadius}px at ${x}px ${y}px)`,
-      ];
-
-      document.documentElement.animate(
-        {
-          clipPath: clipPath,
-        },
-        {
-          duration: 400,
-          easing: "cubic-bezier(0.2, 0, 0, 1)",
-          pseudoElement: "::view-transition-new(root)",
-        }
-      );
-    });
-  };
-
-  const [tab, setTab] = useState<TabMode>("new");
-  const [repo, setRepo] = useState<RepoKind>("eip");
+  // URL and routing state
+  const initialRoute = useMemo(() => parseCurrentRoute(), []);
+  const [page, setPage] = useState<"landing" | "editor">(initialRoute.page);
+  const [tab, setTab] = useState<TabMode>(initialRoute.tab);
+  const [repo, setRepo] = useState<RepoKind>(initialRoute.repo);
   const [view, setView] = useState<ViewMode>("split");
 
   const [data, setData] = useState<ProposalData>({ ...EMPTY_PROPOSAL });
@@ -172,7 +81,7 @@ export default function App() {
   const [showGuide, setShowGuide] = useState(false);
   const [highlightTarget, setHighlightTarget] = useState<string | null>(null);
 
-  const [importQuery, setImportQuery] = useState("");
+  const [importQuery, setImportQuery] = useState(initialRoute.query || "");
   const [importing, setImporting] = useState(false);
   const [importError, setImportError] = useState<string | null>(null);
   const [importedPr, setImportedPr] = useState<ImportedPr | null>(null);
@@ -202,56 +111,202 @@ export default function App() {
     setShowValidation(false);
   }, []);
 
-  // Reset when tab or repo context changes.
-  useEffect(() => {
-    if (tab === "new") {
-      setData({ ...EMPTY_PROPOSAL });
-      setLastEdited("form");
-      setImportedPr(null);
-    }
-    setImportQuery("");
-    setImportError(null);
-    clearValidation();
-  }, [tab, repo, clearValidation]);
-
   const handleField = useCallback((key: ProposalField, value: string) => {
     setLastEdited("form");
     setData((prev) => ({ ...prev, [key]: value }));
     setValidated(false);
   }, []);
 
-  const doImport = useCallback(async () => {
-    const q = importQuery.replace(/[^0-9]/g, "");
-    if (!q) {
-      setImportError("Enter a number");
-      return;
-    }
-    setImporting(true);
-    setImportError(null);
-    try {
-      if (tab === "pr") {
-        const pr = await importPr(repo, q);
-        setMarkdown(pr.markdown);
-        setData({ ...EMPTY_PROPOSAL, ...parseMarkdown(pr.markdown) });
-        setLastEdited("code");
-        setRepo(repoFromFilename(pr.filename));
-        setImportedPr(pr);
-      } else {
-        const r = await fetchProposal(repo, q);
-        setMarkdown(r.markdown);
-        setData({ ...EMPTY_PROPOSAL, ...parseMarkdown(r.markdown) });
-        setLastEdited("code");
-        setRepo(r.repo);
-        setImportedPr(null);
+  // Core Import Logic (with optional parameter overrides for deep links & URL changes)
+  const doImport = useCallback(
+    async (overrideQuery?: string, overrideTab?: TabMode, overrideRepo?: RepoKind) => {
+      const activeTab = overrideTab || tab;
+      const activeRepo = overrideRepo || repo;
+      const raw = overrideQuery !== undefined ? overrideQuery : importQuery;
+      const q = raw.replace(/[^0-9]/g, "");
+      if (!q) {
+        setImportError("Enter a number");
+        return;
       }
-      setValidated(false);
-      setMessages([]);
-    } catch (err) {
-      setImportError(err instanceof Error ? err.message : "Import failed");
-    } finally {
-      setImporting(false);
+      setImporting(true);
+      setImportError(null);
+      try {
+        if (activeTab === "pr") {
+          const pr = await importPr(activeRepo, q);
+          setMarkdown(pr.markdown);
+          setData({ ...EMPTY_PROPOSAL, ...parseMarkdown(pr.markdown) });
+          setLastEdited("code");
+          const r = repoFromFilename(pr.filename);
+          setRepo(r);
+          setImportedPr(pr);
+          // Canonical URL for PR review
+          window.history.replaceState(null, "", `/review/${q}`);
+        } else {
+          const r = await fetchProposal(activeRepo, q);
+          setMarkdown(r.markdown);
+          setData({ ...EMPTY_PROPOSAL, ...parseMarkdown(r.markdown) });
+          setLastEdited("code");
+          setRepo(r.repo);
+          setImportedPr(null);
+          // Canonical URL for proposal import (e.g. /eip/1559)
+          window.history.replaceState(null, "", `/${r.repo}/${q}`);
+        }
+        setValidated(false);
+        setMessages([]);
+      } catch (err) {
+        setImportError(err instanceof Error ? err.message : "Import failed");
+      } finally {
+        setImporting(false);
+      }
+    },
+    [importQuery, tab, repo]
+  );
+
+  // Tab switching from Toolbar with canonical URL updates
+  const handleTabChange = useCallback(
+    (newTab: TabMode) => {
+      setTab(newTab);
+      setImportError(null);
+      clearValidation();
+      if (newTab === "new") {
+        setData({ ...EMPTY_PROPOSAL });
+        setLastEdited("form");
+        setImportedPr(null);
+        setImportQuery("");
+        const url = repo !== "eip" ? `/new?repo=${repo}` : "/new";
+        window.history.pushState(null, "", url);
+      } else if (newTab === "pr") {
+        const url = importQuery && /^\d+$/.test(importQuery) ? `/review/${importQuery}` : "/review";
+        window.history.pushState(null, "", url);
+      } else if (newTab === "import") {
+        const url = importQuery && /^\d+$/.test(importQuery) ? `/${repo}/${importQuery}` : "/import";
+        window.history.pushState(null, "", url);
+      }
+    },
+    [repo, importQuery, clearValidation]
+  );
+
+  // Repo switching from Toolbar with canonical URL updates
+  const handleRepoChange = useCallback(
+    (newRepo: RepoKind) => {
+      setRepo(newRepo);
+      clearValidation();
+      if (tab === "new") {
+        const url = newRepo !== "eip" ? `/new?repo=${newRepo}` : "/new";
+        window.history.pushState(null, "", url);
+      } else if (tab === "import" && importQuery && /^\d+$/.test(importQuery)) {
+        window.history.pushState(null, "", `/${newRepo}/${importQuery}`);
+      }
+    },
+    [tab, importQuery, clearValidation]
+  );
+
+  // Auto-fetch if initial URL contained an ID (e.g. /eip/1559 or /review/12660)
+  useEffect(() => {
+    if (initialRoute.page === "editor" && initialRoute.query) {
+      doImport(initialRoute.query, initialRoute.tab, initialRoute.repo);
     }
-  }, [importQuery, tab, repo]);
+  }, []);
+
+  // Popstate / Hashchange listener for Browser Back & Forward buttons
+  useEffect(() => {
+    const onPop = () => {
+      const parsed = parseCurrentRoute();
+      setPage(parsed.page);
+      setTab(parsed.tab);
+      setRepo(parsed.repo);
+      if (parsed.query) {
+        setImportQuery(parsed.query);
+        if (parsed.page === "editor") {
+          doImport(parsed.query, parsed.tab, parsed.repo);
+        }
+      } else {
+        setImportQuery("");
+      }
+    };
+    window.addEventListener("popstate", onPop);
+    window.addEventListener("hashchange", onPop);
+    return () => {
+      window.removeEventListener("popstate", onPop);
+      window.removeEventListener("hashchange", onPop);
+    };
+  }, [doImport]);
+
+  // Unified Navigation with circular view transitions
+  const navigateTo = useCallback(
+    (
+      destination: { page: "landing" | "editor"; tab?: TabMode; repo?: RepoKind; query?: string },
+      event?: React.MouseEvent | MouseEvent
+    ) => {
+      const targetPage = destination.page;
+      const targetTab = destination.tab || "new";
+      const targetRepo = destination.repo || repo;
+      const targetQuery = destination.query !== undefined ? destination.query : "";
+
+      const targetUrl = buildRouteUrl({
+        page: targetPage,
+        tab: targetTab,
+        repo: targetRepo,
+        query: targetQuery,
+      });
+
+      const applyState = () => {
+        setPage(targetPage);
+        setTab(targetTab);
+        setRepo(targetRepo);
+        setImportQuery(targetQuery);
+        if (targetTab === "new") {
+          setData({ ...EMPTY_PROPOSAL });
+          setLastEdited("form");
+          setImportedPr(null);
+        }
+        clearValidation();
+        window.history.pushState(null, "", targetUrl);
+        if (targetPage === "editor" && targetQuery) {
+          doImport(targetQuery, targetTab, targetRepo);
+        }
+      };
+
+      const supportsViewTransition =
+        typeof document !== "undefined" &&
+        "startViewTransition" in document &&
+        !window.matchMedia("(prefers-reduced-motion: reduce)").matches;
+
+      if (!supportsViewTransition) {
+        applyState();
+        return;
+      }
+
+      const x = event?.clientX ?? window.innerWidth / 2;
+      const y = event?.clientY ?? window.innerHeight / 2;
+      const endRadius = Math.hypot(
+        Math.max(x, window.innerWidth - x),
+        Math.max(y, window.innerHeight - y)
+      );
+
+      const transition = (document as unknown as {
+        startViewTransition: (cb: () => void) => { ready: Promise<void> };
+      }).startViewTransition(() => {
+        applyState();
+      });
+
+      transition.ready.then(() => {
+        const clipPath = [
+          `circle(0px at ${x}px ${y}px)`,
+          `circle(${endRadius}px at ${x}px ${y}px)`,
+        ];
+        document.documentElement.animate(
+          { clipPath },
+          {
+            duration: 400,
+            easing: "cubic-bezier(0.2, 0, 0, 1)",
+            pseudoElement: "::view-transition-new(root)",
+          }
+        );
+      });
+    },
+    [repo, clearValidation, doImport]
+  );
 
   const validate = useCallback(() => {
     setValidating(true);
@@ -318,9 +373,15 @@ export default function App() {
   const showOutput = effectiveView === "preview" || effectiveView === "split";
   const issueCount = messages.length;
 
-  // Render the About Landing Page if on /about
-  if (page === "about") {
-    return <AboutPage onBack={(e) => navigateTo("editor", e)} theme={theme} onToggleTheme={toggle} />;
+  // Render the About Landing Page if on / or /about
+  if (page === "landing") {
+    return (
+      <AboutPage
+        onNavigate={(dest, e) => navigateTo({ page: "editor", ...dest }, e)}
+        theme={theme}
+        onToggleTheme={toggle}
+      />
+    );
   }
 
   return (
@@ -331,9 +392,9 @@ export default function App() {
           {/* Brand Row */}
           <div className="mb-2.5 flex items-center justify-between">
             <div
-              onClick={(e) => navigateTo("editor", e)}
+              onClick={(e) => navigateTo({ page: "landing" }, e)}
               className="flex items-center gap-2.5 cursor-pointer group"
-              title="EIP Review"
+              title="Return to Landing Page"
             >
               <Logo />
               <div className="flex items-baseline gap-1 select-none">
@@ -361,19 +422,19 @@ export default function App() {
 
               <button
                 onClick={() => setShowGuide(true)}
-                className="inline-flex items-center gap-1.5 rounded-lg border border-border bg-card px-2.5 py-1 text-xs font-medium text-fg shadow-2xs hover:bg-zinc-50 dark:hover:bg-zinc-800 transition-colors"
+                className="inline-flex items-center gap-1.5 rounded-lg border border-border bg-card px-2.5 py-1 text-xs font-medium text-fg shadow-2xs hover:bg-zinc-50 dark:hover:bg-zinc-800 transition-colors cursor-pointer"
               >
                 <BookOpen className="h-3.5 w-3.5 text-indigo-500" />
                 <span>Guide</span>
               </button>
 
-              {/* Subtle ? button navigating to /about landing page */}
               <button
-                onClick={(e) => navigateTo("about", e)}
-                title="About EIP Review & Documentation"
-                className="inline-flex items-center justify-center h-7 w-7 rounded-lg border border-border bg-card text-muted hover:text-fg hover:border-fg/30 hover:bg-zinc-50 dark:hover:bg-zinc-800 transition-colors shadow-2xs text-xs font-bold"
+                onClick={(e) => navigateTo({ page: "landing" }, e)}
+                title="Landing Page & Architecture"
+                className="inline-flex items-center gap-1.5 rounded-lg border border-border bg-card px-2.5 py-1 text-xs font-medium text-muted hover:text-fg hover:border-fg/30 transition-colors shadow-2xs cursor-pointer"
               >
-                ?
+                <Info className="h-3.5 w-3.5 opacity-70" />
+                <span className="hidden sm:inline">About</span>
               </button>
             </div>
           </div>
@@ -381,9 +442,9 @@ export default function App() {
           {/* Action Toolbar */}
           <Toolbar
             tab={tab}
-            setTab={setTab}
+            setTab={handleTabChange}
             repo={repo}
-            setRepo={setRepo}
+            setRepo={handleRepoChange}
             view={view}
             setView={setView}
             isMobile={isMobile}
@@ -391,7 +452,7 @@ export default function App() {
             setImportQuery={setImportQuery}
             importing={importing}
             importError={importError}
-            onImport={doImport}
+            onImport={() => doImport()}
             onValidate={validate}
             onDownload={download}
             validating={validating}
@@ -441,7 +502,7 @@ export default function App() {
             {/* Brand Column */}
             <div className="space-y-3 md:col-span-1">
               <div
-                onClick={(e) => navigateTo("editor", e)}
+                onClick={(e) => navigateTo({ page: "landing" }, e)}
                 className="flex items-center gap-2 cursor-pointer"
               >
                 <Logo />
@@ -569,10 +630,10 @@ export default function App() {
 
             <div className="flex items-center gap-3 text-[11px]">
               <button
-                onClick={(e) => navigateTo("about", e)}
-                className="text-muted hover:text-fg transition-colors"
+                onClick={(e) => navigateTo({ page: "landing" }, e)}
+                className="text-muted hover:text-fg transition-colors cursor-pointer"
               >
-                About & Architecture
+                Landing Page & Architecture
               </button>
               <span className="text-muted/40">·</span>
               <a
