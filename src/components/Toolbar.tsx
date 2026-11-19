@@ -185,11 +185,11 @@ export function Toolbar(p: Props) {
           </span>
         )}
 
-        {/* Validate button with amicro-inspired micro-interactions */}
+        {/* Validate button with amicro-inspired micro-interactions (consistent sleek dark button in both themes) */}
         <button
           onClick={p.onValidate}
           disabled={p.validating}
-          className="group relative overflow-hidden inline-flex items-center gap-1.5 rounded-lg bg-primary px-3.5 py-1.5 text-xs font-semibold text-primary-fg shadow-xs transition-all duration-200 hover:shadow-md hover:shadow-indigo-500/15 hover:-translate-y-0.5 active:translate-y-0 active:scale-[0.96] disabled:opacity-50 disabled:pointer-events-none"
+          className="group relative overflow-hidden inline-flex items-center gap-1.5 rounded-lg bg-zinc-950 hover:bg-zinc-900 text-white border border-zinc-800 px-3.5 py-1.5 text-xs font-semibold shadow-xs transition-all duration-200 hover:shadow-md hover:shadow-indigo-500/15 hover:-translate-y-0.5 active:translate-y-0 active:scale-[0.96] disabled:opacity-50 disabled:pointer-events-none"
         >
           {/* Subtle light sweep animation on hover */}
           <span className="pointer-events-none absolute inset-0 -translate-x-full group-hover:translate-x-full transition-transform duration-700 bg-gradient-to-r from-transparent via-white/15 to-transparent" />

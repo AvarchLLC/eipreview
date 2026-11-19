@@ -153,9 +153,6 @@ export function Editor({ data, repo, onChange, issuesByField, highlightTarget }:
         >
           <div className="flex items-center gap-2">
             <h2 className="text-xs font-semibold uppercase tracking-wider text-muted">Proposal Metadata</h2>
-            <span className="rounded bg-indigo-50 dark:bg-indigo-950/40 text-indigo-700 dark:text-indigo-300 border border-indigo-200/50 dark:border-indigo-800/50 px-1.5 py-0.5 font-mono text-[10px]">
-              YAML frontmatter
-            </span>
           </div>
           <ChevronDown
             className={cn("h-4 w-4 text-muted transition-transform duration-200", !preambleOpen && "-rotate-90")}

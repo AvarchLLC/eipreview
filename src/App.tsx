@@ -5,6 +5,7 @@ import { Editor } from "./components/Editor";
 import { OutputPane } from "./components/OutputPane";
 import { ValidationDialog } from "./components/ValidationDialog";
 import { GuideDialog } from "./components/GuideDialog";
+import { AboutPage } from "./components/AboutPage";
 import { useTheme } from "./hooks/useTheme";
 import { EMPTY_PROPOSAL, generateMarkdown, parseMarkdown } from "./lib/markdown";
 import { validateProposal } from "./lib/validation";
@@ -52,6 +53,42 @@ function normalizeKey(field?: string, section?: string): string | null {
 
 export default function App() {
   const { theme, toggle } = useTheme();
+
+  // Page routing state for /about
+  const [page, setPage] = useState<"editor" | "about">(() => {
+    if (typeof window !== "undefined") {
+      return window.location.pathname === "/about" || window.location.hash === "#/about"
+        ? "about"
+        : "editor";
+    }
+    return "editor";
+  });
+
+  useEffect(() => {
+    const onPop = () => {
+      const isAbout = window.location.pathname === "/about" || window.location.hash === "#/about";
+      setPage(isAbout ? "about" : "editor");
+    };
+    window.addEventListener("popstate", onPop);
+    window.addEventListener("hashchange", onPop);
+    return () => {
+      window.removeEventListener("popstate", onPop);
+      window.removeEventListener("hashchange", onPop);
+    };
+  }, []);
+
+  const navigateTo = (p: "editor" | "about") => {
+    setPage(p);
+    try {
+      if (p === "about") {
+        window.history.pushState(null, "", "/about");
+      } else {
+        window.history.pushState(null, "", "/");
+      }
+    } catch {
+      // fallback
+    }
+  };
 
   const [tab, setTab] = useState<TabMode>("new");
   const [repo, setRepo] = useState<RepoKind>("eip");
@@ -189,7 +226,6 @@ export default function App() {
       const target = normalizeKey(item.field, item.section);
       if (target) {
         setHighlightTarget(target);
-        // Clear highlight ring after 2.5s
         window.setTimeout(() => setHighlightTarget(null), 2500);
       }
 
@@ -230,6 +266,11 @@ export default function App() {
   const showOutput = effectiveView === "preview" || effectiveView === "split";
   const issueCount = messages.length;
 
+  // Render the About Landing Page if on /about
+  if (page === "about") {
+    return <AboutPage onBack={() => navigateTo("editor")} theme={theme} onToggleTheme={toggle} />;
+  }
+
   return (
     <div className="min-h-screen flex flex-col bg-bg text-body">
       {/* Top Navigation Header */}
@@ -237,44 +278,50 @@ export default function App() {
         <div className="mx-auto w-full max-w-[1600px] px-3.5 py-2.5 sm:px-6">
           {/* Brand Row */}
           <div className="mb-2.5 flex items-center justify-between">
-            <div className="flex items-center gap-3 group cursor-default">
+            <div
+              onClick={() => navigateTo("editor")}
+              className="flex items-center gap-2.5 cursor-pointer group"
+              title="EIP Review"
+            >
               <Logo />
-              <div className="leading-tight">
-                <div className="flex items-center gap-1.5 select-none">
-                  <span className="text-[17px] font-extrabold tracking-tighter bg-gradient-to-r from-fg via-fg to-indigo-500 bg-clip-text text-transparent">
-                    EIP
-                  </span>
-                  <span className="text-[17px] font-bold text-fg tracking-tight">
-                    Review
-                  </span>
-                  <span className="h-1.5 w-1.5 rounded-full bg-indigo-500 animate-pulse" />
-                </div>
-                <div className="text-[11px] text-muted flex items-center gap-1.5 mt-0.5">
-                  <span>Author & Validate Proposals</span>
-                  <span className="text-muted/40">·</span>
-                  <span className="text-indigo-600 dark:text-indigo-400 font-medium">EIP · ERC · RIP</span>
-                </div>
+              <div className="flex items-baseline gap-1 select-none">
+                <span className="text-[18px] font-black tracking-[-0.04em] text-fg">
+                  EIP
+                </span>
+                <span className="text-[18px] font-light tracking-[-0.02em] text-zinc-500 dark:text-zinc-400">
+                  Review
+                </span>
               </div>
             </div>
 
             {/* Quick Action Links */}
-            <div className="flex items-center gap-2.5 text-xs">
+            <div className="flex items-center gap-2 text-xs">
               <a
-                href="https://github.com/AvarchLLC/EIPsInsight"
+                href="https://github.com/AvarchLLC/eipreview"
                 target="_blank"
                 rel="noreferrer"
                 className="inline-flex items-center gap-1.5 rounded-lg border border-border bg-card px-2.5 py-1 text-xs font-medium text-muted hover:text-fg hover:border-fg/30 transition-colors shadow-2xs"
-                title="View on GitHub"
+                title="View repository on GitHub"
               >
                 <Github className="h-3.5 w-3.5" />
                 <span className="hidden sm:inline">GitHub</span>
               </a>
+
               <button
                 onClick={() => setShowGuide(true)}
                 className="inline-flex items-center gap-1.5 rounded-lg border border-border bg-card px-2.5 py-1 text-xs font-medium text-fg shadow-2xs hover:bg-zinc-50 dark:hover:bg-zinc-800 transition-colors"
               >
                 <BookOpen className="h-3.5 w-3.5 text-indigo-500" />
                 <span>Guide</span>
+              </button>
+
+              {/* Subtle ? button navigating to /about landing page */}
+              <button
+                onClick={() => navigateTo("about")}
+                title="About EIP Review & Documentation"
+                className="inline-flex items-center justify-center h-7 w-7 rounded-lg border border-border bg-card text-muted hover:text-fg hover:border-fg/30 hover:bg-zinc-50 dark:hover:bg-zinc-800 transition-colors shadow-2xs text-xs font-bold"
+              >
+                ?
               </button>
             </div>
           </div>
@@ -347,9 +394,15 @@ export default function App() {
           <div className="grid grid-cols-1 gap-8 sm:grid-cols-2 md:grid-cols-4 pb-8 border-b border-border/60">
             {/* Brand Column */}
             <div className="space-y-3 md:col-span-1">
-              <div className="flex items-center gap-2">
+              <div
+                onClick={() => navigateTo("editor")}
+                className="flex items-center gap-2 cursor-pointer"
+              >
                 <Logo />
-                <span className="text-sm font-bold tracking-tight text-fg">EIP Review</span>
+                <div className="flex items-baseline gap-1 select-none">
+                  <span className="text-[16px] font-black tracking-[-0.04em] text-fg">EIP</span>
+                  <span className="text-[16px] font-light tracking-[-0.02em] text-zinc-500 dark:text-zinc-400">Review</span>
+                </div>
               </div>
               <p className="text-xs text-muted leading-relaxed">
                 A browser-based IDE for authoring, linting, and reviewing Ethereum Improvement Proposals, ERC standards, and RIPs.
@@ -460,11 +513,28 @@ export default function App() {
             </div>
 
             <div className="flex items-center gap-3 text-[11px]">
-              <a href="https://github.com/AvarchLLC/EIPsInsight" target="_blank" rel="noreferrer" className="hover:text-fg transition-colors">
-                Contribute on GitHub
+              <button
+                onClick={() => navigateTo("about")}
+                className="text-muted hover:text-fg transition-colors"
+              >
+                About & Architecture
+              </button>
+              <span className="text-muted/40">·</span>
+              <a
+                href="https://github.com/AvarchLLC/eipreview"
+                target="_blank"
+                rel="noreferrer"
+                className="hover:text-fg transition-colors"
+              >
+                GitHub Repository
               </a>
               <span className="text-muted/40">·</span>
-              <a href="https://eips.ethereum.org" target="_blank" rel="noreferrer" className="hover:text-fg transition-colors">
+              <a
+                href="https://eips.ethereum.org"
+                target="_blank"
+                rel="noreferrer"
+                className="hover:text-fg transition-colors"
+              >
                 eips.ethereum.org
               </a>
             </div>
@@ -491,25 +561,19 @@ export default function App() {
   );
 }
 
-/** Standout Faceted Ethereum Emblem Logo */
+/** Standout Faceted Ethereum Emblem Logo (consistent obsidian container in both modes) */
 function Logo() {
   return (
-    <div className="relative flex h-8 w-8 items-center justify-center rounded-xl bg-gradient-to-b from-zinc-900 to-zinc-950 dark:from-zinc-800 dark:to-zinc-900 border border-indigo-500/30 shadow-md shadow-indigo-500/10 group-hover:scale-105 group-hover:border-indigo-400 transition-all duration-300">
-      {/* Subtle outer glow */}
-      <span className="absolute -inset-0.5 rounded-xl bg-indigo-500/10 blur-xs -z-10 group-hover:bg-indigo-500/20 transition-all" />
+    <div className="relative flex h-8 w-8 items-center justify-center rounded-xl bg-zinc-950 border border-zinc-800 shadow-xs group-hover:scale-105 group-hover:border-indigo-500/40 transition-all duration-300">
       <svg viewBox="0 0 24 24" className="h-4.5 w-4.5" fill="none" aria-hidden>
         {/* Top left facet */}
-        <polygon points="12,2 4.5,14 12,11.5" fill="#a5b4fc" />
+        <path d="M12 2L4.5 14L12 11.5V2Z" fill="#a5b4fc" />
         {/* Top right facet */}
-        <polygon points="12,2 12,11.5 19.5,14" fill="#818cf8" />
+        <path d="M12 2V11.5L19.5 14L12 2Z" fill="#818cf8" />
         {/* Mid left facet */}
-        <polygon points="12,11.5 4.5,14 12,18" fill="#6366f1" />
+        <path d="M12 13.2L4.5 15.2L12 22V13.2Z" fill="#6366f1" />
         {/* Mid right facet */}
-        <polygon points="12,11.5 12,18 19.5,14" fill="#4f46e5" />
-        {/* Bottom left facet */}
-        <polygon points="12,18.8 4.5,14.8 12,22.5" fill="#818cf8" opacity="0.8" />
-        {/* Bottom right facet */}
-        <polygon points="12,18.8 12,22.5 19.5,14.8" fill="#4338ca" opacity="0.9" />
+        <path d="M12 13.2V22L19.5 15.2L12 13.2Z" fill="#4338ca" />
       </svg>
     </div>
   );
