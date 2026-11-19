@@ -154,14 +154,14 @@ export function AboutPage({ onBack, theme, onToggleTheme }: Props) {
                   <ShieldCheck className="h-5 w-5" />
                 </div>
                 <div className="text-[10px] font-mono font-bold uppercase tracking-wider text-sky-600 dark:text-sky-400">Step 03</div>
-                <h3 className="text-base font-bold text-fg mt-1">CI Parity (eipw)</h3>
+                <h3 className="text-base font-bold text-fg mt-1">EIP Walidator & CI Parity</h3>
                 <p className="text-xs text-muted mt-2 leading-relaxed">
-                  Checks are categorized into blocking CI requirements (aligned with official repository linters) versus authoring guidance tips.
+                  Real-time validation mirroring the official GitHub Actions suite: EIP Walidator (metadata & ordering), Markdown Linter, Link Check, and CodeSpell.
                 </p>
               </div>
               <div className="mt-4 pt-3 border-t border-border/60 text-[11px] font-mono text-muted flex items-center justify-between">
-                <span>Repository CI</span>
-                <span className="text-sky-500 font-bold">1:1 Gate</span>
+                <span>GitHub CI Suite</span>
+                <span className="text-sky-500 font-bold">Passing Gate</span>
               </div>
             </div>
 
@@ -278,12 +278,15 @@ export function AboutPage({ onBack, theme, onToggleTheme }: Props) {
             <AboutLogo />
             <span className="font-semibold text-fg">EIP Review</span>
             <span>·</span>
-            <span>Released under CC0 1.0 Universal</span>
+            <span>Released under the MIT License</span>
           </div>
           <div className="flex items-center gap-4">
             <button onClick={(e) => onBack(e)} className="text-fg hover:underline font-medium">
               Launch IDE
             </button>
+            <a href="https://github.com/ethereum/EIPs/blob/master/CONTRIBUTING.md" target="_blank" rel="noreferrer" className="hover:text-fg transition-colors">
+              CONTRIBUTING.md
+            </a>
             <a href="https://github.com/AvarchLLC/eipreview" target="_blank" rel="noreferrer" className="hover:text-fg transition-colors">
               GitHub Repository
             </a>

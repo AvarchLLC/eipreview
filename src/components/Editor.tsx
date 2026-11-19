@@ -74,7 +74,7 @@ export function Editor({ data, repo, onChange, issuesByField, highlightTarget }:
           interactive.focus();
         }
       }
-    }, 60);
+    }, 100);
 
     return () => clearTimeout(timer);
   }, [highlightTarget]);
@@ -90,8 +90,24 @@ export function Editor({ data, repo, onChange, issuesByField, highlightTarget }:
     [data.status, data.type]
   );
 
+  const getIssuesFor = (key: string) => {
+    const k = key.toLowerCase();
+    const kebab = toKebab(key).toLowerCase();
+    const raw = [
+      ...(issuesByField[key] ?? []),
+      ...(issuesByField[k] ?? []),
+      ...(issuesByField[kebab] ?? []),
+    ];
+    const seen = new Set<string>();
+    return raw.filter((iss) => {
+      if (seen.has(iss.message)) return false;
+      seen.add(iss.message);
+      return true;
+    });
+  };
+
   const sevOf = (key: string) => {
-    const issues = issuesByField[toKebab(key)] ?? issuesByField[key.toLowerCase()] ?? [];
+    const issues = getIssuesFor(key);
     if (issues.some((i) => i.level === "error")) return "error" as const;
     if (issues.some((i) => i.level === "warning")) return "warning" as const;
     if (issues.length) return "info" as const;
@@ -164,6 +180,7 @@ export function Editor({ data, repo, onChange, issuesByField, highlightTarget }:
             <div className="grid grid-cols-1 gap-x-4 gap-y-3.5 sm:grid-cols-2">
               {preamble.map((f) => {
                 const sev = sevOf(f.key);
+                const fieldIssues = getIssuesFor(f.key);
                 const isHighlighted = highlightTarget === f.key;
                 const counter =
                   f.key === "title"
@@ -186,9 +203,9 @@ export function Editor({ data, repo, onChange, issuesByField, highlightTarget }:
                         className={cn(
                           "flex items-center gap-1.5 text-xs font-medium",
                           sev === "error"
-                            ? "text-error"
+                            ? "text-error font-semibold"
                             : sev === "warning"
-                            ? "text-warning"
+                            ? "text-warning font-semibold"
                             : "text-muted"
                         )}
                       >
@@ -224,7 +241,15 @@ export function Editor({ data, repo, onChange, issuesByField, highlightTarget }:
                         <select
                           value={data[f.key]}
                           onChange={(e) => onChange(f.key, e.target.value)}
-                          className="w-full appearance-none rounded-lg border border-border bg-bg py-2 pl-3 pr-9 text-xs text-fg outline-none transition-colors focus:border-indigo-500/50 focus:ring-1 focus:ring-indigo-500/20"
+                          className={cn(
+                            "w-full appearance-none rounded-lg py-2 pl-3 pr-9 text-xs outline-none transition-all duration-200",
+                            sev === "error"
+                              ? "border-2 border-error bg-error-soft/30 dark:bg-error-soft/10 text-fg focus:border-error focus:ring-2 focus:ring-error/20"
+                              : sev === "warning"
+                              ? "border-2 border-warning bg-warning-soft/30 dark:bg-warning-soft/10 text-fg focus:border-warning focus:ring-2 focus:ring-warning/20"
+                              : "border border-border bg-bg text-fg focus:border-indigo-500/50 focus:ring-1 focus:ring-indigo-500/20",
+                            isHighlighted && "ring-2 ring-indigo-500 border-indigo-500 shadow-md shadow-indigo-500/20"
+                          )}
                         >
                           {(f.options?.(repo) ?? []).map((o) => (
                             <option key={o} value={o}>
@@ -240,8 +265,38 @@ export function Editor({ data, repo, onChange, issuesByField, highlightTarget }:
                         value={data[f.key]}
                         onChange={(e) => onChange(f.key, e.target.value)}
                         placeholder={f.hint}
-                        className="w-full rounded-lg border border-border bg-bg px-3 py-2 text-xs text-fg placeholder:text-muted/50 outline-none transition-colors focus:border-indigo-500/50 focus:ring-1 focus:ring-indigo-500/20"
+                        className={cn(
+                          "w-full rounded-lg px-3 py-2 text-xs outline-none transition-all duration-200",
+                          sev === "error"
+                            ? "border-2 border-error bg-error-soft/30 dark:bg-error-soft/10 text-fg focus:border-error focus:ring-2 focus:ring-error/20"
+                            : sev === "warning"
+                            ? "border-2 border-warning bg-warning-soft/30 dark:bg-warning-soft/10 text-fg focus:border-warning focus:ring-2 focus:ring-warning/20"
+                            : "border border-border bg-bg text-fg placeholder:text-muted/50 focus:border-indigo-500/50 focus:ring-1 focus:ring-indigo-500/20",
+                          isHighlighted && "ring-2 ring-indigo-500 border-indigo-500 shadow-md shadow-indigo-500/20"
+                        )}
                       />
+                    )}
+
+                    {/* Inline Issue Messages for this field */}
+                    {fieldIssues.length > 0 && (
+                      <div className="mt-1 space-y-0.5">
+                        {fieldIssues.map((iss, idx) => (
+                          <p
+                            key={idx}
+                            className={cn(
+                              "text-[11px] leading-tight flex items-start gap-1 font-medium",
+                              iss.level === "error"
+                                ? "text-error"
+                                : iss.level === "warning"
+                                ? "text-warning"
+                                : "text-info"
+                            )}
+                          >
+                            <span className="font-bold">•</span>
+                            <span>{iss.message}</span>
+                          </p>
+                        ))}
+                      </div>
                     )}
                   </div>
                 );
@@ -261,7 +316,8 @@ export function Editor({ data, repo, onChange, issuesByField, highlightTarget }:
         <div className="space-y-2.5">
           {SECTION_FIELDS.map((s) => {
             const isOpen = open[s.key] ?? false;
-            const sev = sevOf(s.label);
+            const secSev = sevOf(s.key) ?? sevOf(s.label);
+            const secIssues = getIssuesFor(s.key);
             const empty = !data[s.key]?.trim();
             const isHighlighted = highlightTarget === s.key;
 
@@ -270,24 +326,47 @@ export function Editor({ data, repo, onChange, issuesByField, highlightTarget }:
                 key={s.key}
                 id={`editor-${s.key}`}
                 className={cn(
-                  "overflow-hidden rounded-xl border border-border bg-card shadow-xs transition-all duration-300",
+                  "overflow-hidden rounded-xl border bg-card shadow-xs transition-all duration-300",
+                  secSev === "error"
+                    ? "border-error/70 bg-error-soft/10 shadow-xs shadow-error/10"
+                    : secSev === "warning"
+                    ? "border-warning/70 bg-warning-soft/10 shadow-xs shadow-warning/10"
+                    : "border-border",
                   isOpen && "ring-1 ring-border/80",
-                  isHighlighted && "ring-2 ring-indigo-500 shadow-md shadow-indigo-500/10"
+                  isHighlighted && "ring-2 ring-indigo-500 border-indigo-500 shadow-md shadow-indigo-500/20"
                 )}
               >
                 {/* Section Header Button */}
                 <button
                   type="button"
                   onClick={() => setOpen((p) => ({ ...p, [s.key]: !p[s.key] }))}
-                  className="flex w-full items-center justify-between gap-3 px-4 py-3 text-left transition-colors hover:bg-zinc-50/70 dark:hover:bg-zinc-800/40"
+                  className={cn(
+                    "flex w-full items-center justify-between gap-3 px-4 py-3 text-left transition-colors",
+                    secSev === "error"
+                      ? "hover:bg-error-soft/30"
+                      : secSev === "warning"
+                      ? "hover:bg-warning-soft/30"
+                      : "hover:bg-zinc-50/70 dark:hover:bg-zinc-800/40"
+                  )}
                 >
                   <div className="flex items-center gap-2">
-                    <span className="text-xs font-semibold text-fg">{s.label}</span>
+                    <span
+                      className={cn(
+                        "text-xs font-semibold",
+                        secSev === "error"
+                          ? "text-error"
+                          : secSev === "warning"
+                          ? "text-warning"
+                          : "text-fg"
+                      )}
+                    >
+                      {s.label}
+                    </span>
                     {s.optional && (
                       <span className="text-[10px] text-muted/60 font-normal">optional</span>
                     )}
-                    {sev && <span className={cn("h-1.5 w-1.5 rounded-full", dot(sev))} />}
-                    {!empty && !sev && (
+                    {secSev && <span className={cn("h-1.5 w-1.5 rounded-full", dot(secSev))} />}
+                    {!empty && !secSev && (
                       <span className="h-1.5 w-1.5 rounded-full bg-emerald-500" title="Section has content" />
                     )}
                   </div>
@@ -366,14 +445,44 @@ export function Editor({ data, repo, onChange, issuesByField, highlightTarget }:
                       </div>
                     </div>
 
-                    {/* Textarea */}
+                    {/* Textarea with direct error/warning highlighting */}
                     <textarea
                       value={data[s.key]}
                       onChange={(e) => onChange(s.key, e.target.value)}
                       rows={s.key === "specification" || s.key === "abstract" ? 8 : 4}
                       placeholder={`Write the ${s.label} section in Markdown…`}
-                      className="w-full resize-y rounded-lg border border-border bg-card p-3 font-mono text-xs leading-relaxed text-fg placeholder:text-muted/40 outline-none transition-colors focus:border-indigo-500/50 focus:ring-1 focus:ring-indigo-500/20"
+                      className={cn(
+                        "w-full resize-y rounded-lg p-3 font-mono text-xs leading-relaxed text-fg placeholder:text-muted/40 outline-none transition-all duration-200",
+                        secSev === "error"
+                          ? "border-2 border-error bg-error-soft/30 dark:bg-error-soft/10 text-fg focus:border-error focus:ring-2 focus:ring-error/20"
+                          : secSev === "warning"
+                          ? "border-2 border-warning bg-warning-soft/30 dark:bg-warning-soft/10 text-fg focus:border-warning focus:ring-2 focus:ring-warning/20"
+                          : "border border-border bg-card focus:border-indigo-500/50 focus:ring-1 focus:ring-indigo-500/20",
+                        isHighlighted && "ring-2 ring-indigo-500 border-indigo-500 shadow-md shadow-indigo-500/20"
+                      )}
                     />
+
+                    {/* Inline Issue Messages for this section */}
+                    {secIssues.length > 0 && (
+                      <div className="mt-1 space-y-0.5">
+                        {secIssues.map((iss, idx) => (
+                          <p
+                            key={idx}
+                            className={cn(
+                              "text-[11px] leading-tight flex items-start gap-1 font-medium",
+                              iss.level === "error"
+                                ? "text-error"
+                                : iss.level === "warning"
+                                ? "text-warning"
+                                : "text-info"
+                            )}
+                          >
+                            <span className="font-bold">•</span>
+                            <span>{iss.message}</span>
+                          </p>
+                        ))}
+                      </div>
+                    )}
                   </div>
                 )}
               </div>

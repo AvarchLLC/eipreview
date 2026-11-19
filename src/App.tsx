@@ -22,32 +22,41 @@ import type {
 import { cn } from "./lib/cn";
 
 function normalizeKey(field?: string, section?: string): string | null {
-  if (section) {
-    const s = section.toLowerCase().replace(/[^a-z0-9]/g, "");
-    if (s.includes("abstract")) return "abstract";
-    if (s.includes("motivation")) return "motivation";
-    if (s.includes("specification")) return "specification";
-    if (s.includes("rationale")) return "rationale";
-    if (s.includes("backwards") || s.includes("compatibility")) return "backwardsCompatibility";
-    if (s.includes("test")) return "testCases";
-    if (s.includes("reference") || s.includes("implementation")) return "referenceImplementation";
-    if (s.includes("security")) return "securityConsiderations";
+  const parts = [field, section].filter(Boolean).join(" ").toLowerCase();
+
+  // 1. Body sections
+  if (parts.includes("abstract")) return "abstract";
+  if (parts.includes("motivation")) return "motivation";
+  if (
+    parts.includes("specification") ||
+    parts.includes("normative") ||
+    parts.includes("rfc 2119") ||
+    parts.includes("rfc2119") ||
+    parts.includes("rfc 8174")
+  ) {
+    return "specification";
   }
-  if (field) {
-    const f = field.toLowerCase().replace(/[^a-z0-9]/g, "");
-    if (f.includes("title")) return "title";
-    if (f.includes("description")) return "description";
-    if (f.includes("author")) return "author";
-    if (f.includes("discussion")) return "discussionsTo";
-    if (f.includes("status")) return "status";
-    if (f.includes("deadline")) return "lastCallDeadline";
-    if (f.includes("type")) return "type";
-    if (f.includes("category")) return "category";
-    if (f.includes("created")) return "created";
-    if (f.includes("require")) return "requires";
-    if (f.includes("withdrawal")) return "withdrawalReason";
-    if (f.includes("eip") || f.includes("number")) return "eip";
-  }
+  if (parts.includes("rationale")) return "rationale";
+  if (parts.includes("backwards") || parts.includes("compatibility")) return "backwardsCompatibility";
+  if (parts.includes("test")) return "testCases";
+  if (parts.includes("reference") || parts.includes("implementation")) return "referenceImplementation";
+  if (parts.includes("security")) return "securityConsiderations";
+  if (parts.includes("copyright") || parts.includes("license") || parts.includes("cc0")) return "abstract";
+
+  // 2. Preamble fields
+  if (parts.includes("title")) return "title";
+  if (parts.includes("description")) return "description";
+  if (parts.includes("author")) return "author";
+  if (parts.includes("discussion")) return "discussionsTo";
+  if (parts.includes("status")) return "status";
+  if (parts.includes("deadline") || parts.includes("last-call") || parts.includes("lastcall")) return "lastCallDeadline";
+  if (parts.includes("type")) return "type";
+  if (parts.includes("category")) return "category";
+  if (parts.includes("created")) return "created";
+  if (parts.includes("require")) return "requires";
+  if (parts.includes("withdrawal")) return "withdrawalReason";
+  if (parts.includes("eip") || parts.includes("number") || parts.includes("preamble") || parts.includes("order")) return "eip";
+
   return null;
 }
 
@@ -281,11 +290,16 @@ export default function App() {
     (item: ValidationMessage) => {
       setShowValidation(false);
 
+      // If user is currently in Preview-only view, ensure Editor is visible
+      if (view === "preview") {
+        setView("split");
+      }
+
       // 1. Identify and highlight target on the LEFT (Editor pane)
       const target = normalizeKey(item.field, item.section);
       if (target) {
         setHighlightTarget(target);
-        window.setTimeout(() => setHighlightTarget(null), 2500);
+        window.setTimeout(() => setHighlightTarget(null), 3500);
       }
 
       // 2. Scroll and focus on the RIGHT (Markdown code pane)
@@ -305,12 +319,17 @@ export default function App() {
         }, 80);
       }
     },
-    []
+    [view]
   );
 
   const issuesByField = useMemo(() => {
     const map: Record<string, ValidationMessage[]> = {};
     for (const msg of messages) {
+      // Map normalized key directly (e.g. "specification", "title")
+      const norm = normalizeKey(msg.field, msg.section);
+      if (norm) {
+        (map[norm] ??= []).push(msg);
+      }
       for (const key of [msg.field, msg.section]) {
         if (!key) continue;
         const k = key.toLowerCase();
@@ -493,6 +512,11 @@ export default function App() {
                   </a>
                 </li>
                 <li>
+                  <a href="https://github.com/ethereum/EIPs/blob/master/CONTRIBUTING.md" target="_blank" rel="noreferrer" className="text-muted hover:text-fg transition-colors inline-flex items-center gap-1">
+                    EIP Contributing Guide <ExternalLink className="h-2.5 w-2.5 opacity-40" />
+                  </a>
+                </li>
+                <li>
                   <a href="https://github.com/ethereum/EIPs" target="_blank" rel="noreferrer" className="text-muted hover:text-fg transition-colors inline-flex items-center gap-1">
                     EIPs Repository <ExternalLink className="h-2.5 w-2.5 opacity-40" />
                   </a>
@@ -539,23 +563,27 @@ export default function App() {
 
             {/* Tooling & Standards */}
             <div>
-              <p className="text-[11px] font-semibold uppercase tracking-wider text-muted mb-3">Validation Stack</p>
+              <p className="text-[11px] font-semibold uppercase tracking-wider text-muted mb-3">CI Checks Coverage</p>
               <ul className="space-y-2 text-xs">
                 <li className="flex items-center gap-1.5 text-muted">
-                  <span className="h-1.5 w-1.5 rounded-full bg-indigo-500" />
-                  <span>eipw CI Linter (Parity)</span>
+                  <span className="h-1.5 w-1.5 rounded-full bg-emerald-500 shrink-0" />
+                  <span>EIP Walidator (eipw)</span>
                 </li>
                 <li className="flex items-center gap-1.5 text-muted">
-                  <span className="h-1.5 w-1.5 rounded-full bg-violet-500" />
-                  <span>RFC 2119 / 8174 Keywords</span>
+                  <span className="h-1.5 w-1.5 rounded-full bg-emerald-500 shrink-0" />
+                  <span>Markdown Linter</span>
                 </li>
                 <li className="flex items-center gap-1.5 text-muted">
-                  <span className="h-1.5 w-1.5 rounded-full bg-emerald-500" />
-                  <span>CC0 1.0 Public Domain</span>
+                  <span className="h-1.5 w-1.5 rounded-full bg-emerald-500 shrink-0" />
+                  <span>Link Check (URLs)</span>
                 </li>
                 <li className="flex items-center gap-1.5 text-muted">
-                  <span className="h-1.5 w-1.5 rounded-full bg-sky-500" />
-                  <span>GitHub REST API Integration</span>
+                  <span className="h-1.5 w-1.5 rounded-full bg-emerald-500 shrink-0" />
+                  <span>CodeSpell Linter</span>
+                </li>
+                <li className="flex items-center gap-1.5 text-muted">
+                  <span className="h-1.5 w-1.5 rounded-full bg-emerald-500 shrink-0" />
+                  <span>HTMLProofer Build</span>
                 </li>
               </ul>
             </div>
@@ -566,7 +594,7 @@ export default function App() {
             <div className="flex items-center gap-2 text-[11px]">
               <span>© 2026 EIP Review</span>
               <span className="text-muted/40">·</span>
-              <span>Released under CC0 1.0 Universal</span>
+              <span>Released under the MIT License</span>
               <span className="text-muted/40">·</span>
               <span className="text-indigo-600 dark:text-indigo-400 font-medium">Open Source</span>
             </div>
@@ -578,6 +606,15 @@ export default function App() {
               >
                 About & Architecture
               </button>
+              <span className="text-muted/40">·</span>
+              <a
+                href="https://github.com/ethereum/EIPs/blob/master/CONTRIBUTING.md"
+                target="_blank"
+                rel="noreferrer"
+                className="hover:text-fg transition-colors"
+              >
+                CONTRIBUTING.md
+              </a>
               <span className="text-muted/40">·</span>
               <a
                 href="https://github.com/AvarchLLC/eipreview"

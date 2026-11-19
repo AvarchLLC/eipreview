@@ -2,6 +2,7 @@
   "name": "eipreview",
   "private": true,
   "version": "0.1.0",
+  "license": "MIT",
   "type": "module",
   "description": "A client-side IDE for authoring, validating, and reviewing Ethereum proposals (EIPs, ERCs, RIPs). Built with love from EIPsInsight.",
   "scripts": {

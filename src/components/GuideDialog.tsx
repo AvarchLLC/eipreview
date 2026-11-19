@@ -88,7 +88,7 @@ export function GuideDialog({ onClose }: Props) {
                 <rect x="170" y="14" width="154" height="44" rx="8" fill="var(--color-card)" stroke="var(--color-info)" strokeWidth="1" strokeOpacity="0.5" />
                 <circle cx="186" cy="36" r="3.5" fill="var(--color-info)" />
                 <text x="246" y="32" textAnchor="middle" fontSize="11" fontWeight="600" fill="var(--color-fg)">CI Blocking Rules</text>
-                <text x="246" y="47" textAnchor="middle" fontSize="9.5" fill="var(--color-muted)">eipw · headers · CC0 license</text>
+                <text x="246" y="47" textAnchor="middle" fontSize="9.5" fill="var(--color-muted)">EIP Walidator · headers · CC0</text>
               </g>
 
               {/* 3. Bottom Branch: Authoring Guidance (Purple/Accent) */}
@@ -163,7 +163,7 @@ export function GuideDialog({ onClose }: Props) {
                 <span className="h-2 w-2 rounded-full bg-error" />
                 <p className="font-semibold text-error text-[11px] uppercase tracking-wider">Errors</p>
               </div>
-              <p className="text-[11px] text-body">Required to fix. GitHub CI actions (eipw) will reject the PR if any error remains.</p>
+              <p className="text-[11px] text-body">Required to fix. GitHub CI actions (EIP Walidator & markdownlint) will reject the PR if any error remains.</p>
             </div>
             <div className="rounded-xl border border-warning/25 bg-warning-soft/60 p-3">
               <div className="flex items-center gap-1.5 mb-1">

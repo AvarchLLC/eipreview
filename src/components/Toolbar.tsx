@@ -88,26 +88,41 @@ export function Toolbar(p: Props) {
         {/* Import search box */}
         {(p.tab === "import" || p.tab === "pr") && (
           <div className="flex items-center gap-1.5">
-            <div className="relative">
+            <div className="relative flex items-center">
+              <Search className="pointer-events-none absolute left-2.5 h-3.5 w-3.5 text-muted/60" />
               <input
                 value={p.importQuery}
                 onChange={(e) => p.setImportQuery(e.target.value)}
                 onKeyDown={(e) => e.key === "Enter" && p.onImport()}
                 placeholder={p.tab === "pr" ? "GitHub PR number…" : `${p.repo.toUpperCase()} number (e.g. 1559)`}
-                className="w-48 sm:w-56 rounded-lg border border-border bg-card py-1.5 pl-3 pr-8 text-xs text-fg placeholder:text-muted/60 outline-none transition-colors focus:border-indigo-500/50 focus:ring-1 focus:ring-indigo-500/20"
+                className="w-52 sm:w-64 rounded-lg border border-border bg-card py-1.5 pl-8 pr-16 text-xs text-fg placeholder:text-muted/60 outline-none transition-all focus:border-indigo-500/50 focus:ring-1 focus:ring-indigo-500/20"
               />
-              <button
-                onClick={p.onImport}
-                disabled={p.importing}
-                title="Fetch from GitHub"
-                className="absolute right-1 top-1/2 -translate-y-1/2 rounded p-1 text-muted hover:text-fg transition-colors"
-              >
-                {p.importing ? (
-                  <Loader2 className="h-3.5 w-3.5 animate-spin text-indigo-500" />
+              <div className="absolute right-1 flex items-center">
+                {p.importQuery.trim() ? (
+                  <button
+                    onClick={p.onImport}
+                    disabled={p.importing}
+                    title="Fetch proposal from GitHub (Enter)"
+                    className="inline-flex items-center gap-1 rounded-md bg-zinc-900 hover:bg-zinc-800 dark:bg-zinc-100 dark:hover:bg-white text-white dark:text-zinc-900 px-2 py-0.5 text-[11px] font-semibold shadow-xs transition-all duration-150 active:scale-95 disabled:opacity-50 cursor-pointer"
+                  >
+                    {p.importing ? (
+                      <Loader2 className="h-3 w-3 animate-spin text-indigo-400 dark:text-indigo-600" />
+                    ) : (
+                      <>
+                        <span>Fetch</span>
+                        <span className="opacity-60 text-[10px]">↵</span>
+                      </>
+                    )}
+                  </button>
                 ) : (
-                  <Search className="h-3.5 w-3.5" />
+                  <kbd
+                    title="Press Enter to search"
+                    className="pointer-events-none inline-flex items-center rounded border border-border bg-zinc-100 dark:bg-zinc-800 px-1.5 py-0.5 font-mono text-[10px] text-muted shadow-2xs mr-1 select-none"
+                  >
+                    ↵
+                  </kbd>
                 )}
-              </button>
+              </div>
             </div>
             {p.importError && (
               <span className="max-w-[160px] truncate text-[11px] font-medium text-error" title={p.importError}>
