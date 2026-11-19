@@ -1,4 +1,4 @@
-import { useMemo, useState } from "react";
+import { useEffect, useMemo, useState } from "react";
 import {
   Bold,
   ChevronDown,
@@ -18,6 +18,7 @@ interface Props {
   repo: RepoKind;
   onChange: (key: ProposalField, value: string) => void;
   issuesByField: Record<string, ValidationMessage[]>;
+  highlightTarget?: string | null;
 }
 
 function dot(level: "error" | "warning" | "info") {
@@ -29,18 +30,7 @@ function toKebab(s: string): string {
   return s.replace(/[A-Z]/g, (m) => "-" + m.toLowerCase());
 }
 
-const SECTION_TAGS: Record<string, { label: string; tone: string }> = {
-  abstract: { label: "Summary", tone: "bg-sky-50 dark:bg-sky-950/40 text-sky-700 dark:text-sky-300 border-sky-200/60 dark:border-sky-800/60" },
-  motivation: { label: "Problem", tone: "bg-emerald-50 dark:bg-emerald-950/40 text-emerald-700 dark:text-emerald-300 border-emerald-200/60 dark:border-emerald-800/60" },
-  specification: { label: "Normative", tone: "bg-indigo-50 dark:bg-indigo-950/40 text-indigo-700 dark:text-indigo-300 border-indigo-200/60 dark:border-indigo-800/60" },
-  rationale: { label: "Design", tone: "bg-purple-50 dark:bg-purple-950/40 text-purple-700 dark:text-purple-300 border-purple-200/60 dark:border-purple-800/60" },
-  backwardsCompatibility: { label: "Compatibility", tone: "bg-amber-50 dark:bg-amber-950/40 text-amber-700 dark:text-amber-300 border-amber-200/60 dark:border-amber-800/60" },
-  testCases: { label: "Tests", tone: "bg-teal-50 dark:bg-teal-950/40 text-teal-700 dark:text-teal-300 border-teal-200/60 dark:border-teal-800/60" },
-  referenceImplementation: { label: "Code", tone: "bg-zinc-100 dark:bg-zinc-800 text-zinc-700 dark:text-zinc-300 border-zinc-200 dark:border-zinc-700" },
-  securityConsiderations: { label: "Critical", tone: "bg-rose-50 dark:bg-rose-950/40 text-rose-700 dark:text-rose-300 border-rose-200/60 dark:border-rose-800/60" },
-};
-
-export function Editor({ data, repo, onChange, issuesByField }: Props) {
+export function Editor({ data, repo, onChange, issuesByField, highlightTarget }: Props) {
   const [open, setOpen] = useState<Record<string, boolean>>({
     abstract: true,
     specification: true,
@@ -53,6 +43,41 @@ export function Editor({ data, repo, onChange, issuesByField }: Props) {
   });
 
   const [preambleOpen, setPreambleOpen] = useState(true);
+
+  // Synchronize scrolling and auto-expanding when user clicks a validation issue
+  useEffect(() => {
+    if (!highlightTarget) return;
+
+    const sectionKeys = [
+      "abstract",
+      "motivation",
+      "specification",
+      "rationale",
+      "backwardsCompatibility",
+      "testCases",
+      "referenceImplementation",
+      "securityConsiderations",
+    ];
+
+    if (sectionKeys.includes(highlightTarget)) {
+      setOpen((prev) => ({ ...prev, [highlightTarget]: true }));
+    } else {
+      setPreambleOpen(true);
+    }
+
+    const timer = window.setTimeout(() => {
+      const el = document.getElementById(`editor-${highlightTarget}`);
+      if (el) {
+        el.scrollIntoView({ behavior: "smooth", block: "center" });
+        const interactive = el.querySelector("input, select, textarea") as HTMLElement | null;
+        if (interactive) {
+          interactive.focus();
+        }
+      }
+    }, 60);
+
+    return () => clearTimeout(timer);
+  }, [highlightTarget]);
 
   const preamble = useMemo(
     () =>
@@ -142,6 +167,7 @@ export function Editor({ data, repo, onChange, issuesByField }: Props) {
             <div className="grid grid-cols-1 gap-x-4 gap-y-3.5 sm:grid-cols-2">
               {preamble.map((f) => {
                 const sev = sevOf(f.key);
+                const isHighlighted = highlightTarget === f.key;
                 const counter =
                   f.key === "title"
                     ? `${data.title.length}/44`
@@ -149,7 +175,15 @@ export function Editor({ data, repo, onChange, issuesByField }: Props) {
                     ? `${data.description.length}/140`
                     : null;
                 return (
-                  <div key={f.key} className={cn(f.wide && "sm:col-span-2")}>
+                  <div
+                    key={f.key}
+                    id={`editor-${f.key}`}
+                    className={cn(
+                      "p-1.5 rounded-lg transition-all duration-300",
+                      f.wide && "sm:col-span-2",
+                      isHighlighted && "ring-2 ring-indigo-500 bg-indigo-50/20 dark:bg-indigo-950/20"
+                    )}
+                  >
                     <div className="mb-1 flex items-center justify-between gap-2">
                       <label
                         className={cn(
@@ -220,7 +254,7 @@ export function Editor({ data, repo, onChange, issuesByField }: Props) {
         )}
       </section>
 
-      {/* Proposal Sections */}
+      {/* Proposal Sections (Clean headers without bulky section badges) */}
       <section className="space-y-3">
         <div className="flex items-center justify-between px-1 pt-1">
           <h2 className="text-xs font-semibold uppercase tracking-wider text-muted">Proposal Body Sections</h2>
@@ -232,14 +266,16 @@ export function Editor({ data, repo, onChange, issuesByField }: Props) {
             const isOpen = open[s.key] ?? false;
             const sev = sevOf(s.label);
             const empty = !data[s.key]?.trim();
-            const tag = SECTION_TAGS[s.key];
+            const isHighlighted = highlightTarget === s.key;
 
             return (
               <div
                 key={s.key}
+                id={`editor-${s.key}`}
                 className={cn(
-                  "overflow-hidden rounded-xl border border-border bg-card shadow-xs transition-colors",
-                  isOpen && "ring-1 ring-border/80"
+                  "overflow-hidden rounded-xl border border-border bg-card shadow-xs transition-all duration-300",
+                  isOpen && "ring-1 ring-border/80",
+                  isHighlighted && "ring-2 ring-indigo-500 shadow-md shadow-indigo-500/10"
                 )}
               >
                 {/* Section Header Button */}
@@ -250,11 +286,6 @@ export function Editor({ data, repo, onChange, issuesByField }: Props) {
                 >
                   <div className="flex items-center gap-2">
                     <span className="text-xs font-semibold text-fg">{s.label}</span>
-                    {tag && (
-                      <span className={cn("rounded border px-1.5 py-0.5 text-[9px] font-medium uppercase tracking-wide", tag.tone)}>
-                        {tag.label}
-                      </span>
-                    )}
                     {s.optional && (
                       <span className="text-[10px] text-muted/60 font-normal">optional</span>
                     )}
@@ -274,7 +305,7 @@ export function Editor({ data, repo, onChange, issuesByField }: Props) {
                 {/* Section Editor Area */}
                 {isOpen && (
                   <div className="border-t border-border bg-bg/50 p-3 sm:p-4 space-y-2.5">
-                    {/* Header info & inline formatting toolbar (Inspired by Untitled UI & Notion) */}
+                    {/* Header info & inline formatting toolbar */}
                     <div className="flex flex-wrap items-center justify-between gap-2">
                       <p className="text-[11px] leading-relaxed text-muted">{s.hint}</p>
 

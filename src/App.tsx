@@ -20,6 +20,36 @@ import type {
 } from "./lib/types";
 import { cn } from "./lib/cn";
 
+function normalizeKey(field?: string, section?: string): string | null {
+  if (section) {
+    const s = section.toLowerCase().replace(/[^a-z0-9]/g, "");
+    if (s.includes("abstract")) return "abstract";
+    if (s.includes("motivation")) return "motivation";
+    if (s.includes("specification")) return "specification";
+    if (s.includes("rationale")) return "rationale";
+    if (s.includes("backwards") || s.includes("compatibility")) return "backwardsCompatibility";
+    if (s.includes("test")) return "testCases";
+    if (s.includes("reference") || s.includes("implementation")) return "referenceImplementation";
+    if (s.includes("security")) return "securityConsiderations";
+  }
+  if (field) {
+    const f = field.toLowerCase().replace(/[^a-z0-9]/g, "");
+    if (f.includes("title")) return "title";
+    if (f.includes("description")) return "description";
+    if (f.includes("author")) return "author";
+    if (f.includes("discussion")) return "discussionsTo";
+    if (f.includes("status")) return "status";
+    if (f.includes("deadline")) return "lastCallDeadline";
+    if (f.includes("type")) return "type";
+    if (f.includes("category")) return "category";
+    if (f.includes("created")) return "created";
+    if (f.includes("require")) return "requires";
+    if (f.includes("withdrawal")) return "withdrawalReason";
+    if (f.includes("eip") || f.includes("number")) return "eip";
+  }
+  return null;
+}
+
 export default function App() {
   const { theme, toggle } = useTheme();
 
@@ -37,6 +67,7 @@ export default function App() {
   const [validating, setValidating] = useState(false);
   const [showValidation, setShowValidation] = useState(false);
   const [showGuide, setShowGuide] = useState(false);
+  const [highlightTarget, setHighlightTarget] = useState<string | null>(null);
 
   const [importQuery, setImportQuery] = useState("");
   const [importing, setImporting] = useState(false);
@@ -149,24 +180,37 @@ export default function App() {
     URL.revokeObjectURL(url);
   }, [markdown, repo, data.eip]);
 
-  const jumpToLine = useCallback(
-    (line?: number) => {
-      if (!line) return;
+  // Synchronized bidirectional jump: scrolls BOTH left editor section and right code pane!
+  const handleJump = useCallback(
+    (item: ValidationMessage) => {
       setShowValidation(false);
-      setOutputTab("code");
-      setView(isMobile ? "preview" : "split");
-      window.setTimeout(() => {
-        const ta = codeRef.current;
-        if (!ta) return;
-        const lines = ta.value.split("\n");
-        let start = 0;
-        for (let i = 0; i < line - 1 && i < lines.length; i++) start += lines[i].length + 1;
-        ta.focus();
-        ta.setSelectionRange(start, start + (lines[line - 1]?.length ?? 0));
-        ta.scrollTop = Math.max(0, (line - 4) * 22);
-      }, 60);
+
+      // 1. Identify and highlight target on the LEFT (Editor pane)
+      const target = normalizeKey(item.field, item.section);
+      if (target) {
+        setHighlightTarget(target);
+        // Clear highlight ring after 2.5s
+        window.setTimeout(() => setHighlightTarget(null), 2500);
+      }
+
+      // 2. Scroll and focus on the RIGHT (Markdown code pane)
+      if (item.line) {
+        setOutputTab("code");
+        window.setTimeout(() => {
+          const ta = codeRef.current;
+          if (!ta) return;
+          const lines = ta.value.split("\n");
+          let start = 0;
+          for (let i = 0; i < item.line! - 1 && i < lines.length; i++) {
+            start += lines[i].length + 1;
+          }
+          ta.focus();
+          ta.setSelectionRange(start, start + (lines[item.line! - 1]?.length ?? 0));
+          ta.scrollTop = Math.max(0, (item.line! - 4) * 22);
+        }, 80);
+      }
     },
-    [isMobile]
+    []
   );
 
   const issuesByField = useMemo(() => {
@@ -188,19 +232,22 @@ export default function App() {
 
   return (
     <div className="min-h-screen flex flex-col bg-bg text-body">
-      {/* Top Navigation Header (Untitled UI / Linear Clean Navbar) */}
+      {/* Top Navigation Header */}
       <header className="sticky top-0 z-30 border-b border-border bg-bg/95 backdrop-blur-md">
         <div className="mx-auto w-full max-w-[1600px] px-3.5 py-2.5 sm:px-6">
           {/* Brand Row */}
           <div className="mb-2.5 flex items-center justify-between">
-            <div className="flex items-center gap-3">
+            <div className="flex items-center gap-3 group cursor-default">
               <Logo />
               <div className="leading-tight">
-                <div className="flex items-center gap-2">
-                  <span className="text-sm font-bold tracking-tight text-fg">EIP Review</span>
-                  <span className="rounded-full bg-indigo-50 dark:bg-indigo-950/50 text-indigo-700 dark:text-indigo-300 border border-indigo-200/60 dark:border-indigo-800/60 px-2 py-0.5 text-[10px] font-medium">
-                    v0.1.0
+                <div className="flex items-center gap-1.5 select-none">
+                  <span className="text-[17px] font-extrabold tracking-tighter bg-gradient-to-r from-fg via-fg to-indigo-500 bg-clip-text text-transparent">
+                    EIP
                   </span>
+                  <span className="text-[17px] font-bold text-fg tracking-tight">
+                    Review
+                  </span>
+                  <span className="h-1.5 w-1.5 rounded-full bg-indigo-500 animate-pulse" />
                 </div>
                 <div className="text-[11px] text-muted flex items-center gap-1.5 mt-0.5">
                   <span>Author & Validate Proposals</span>
@@ -270,7 +317,13 @@ export default function App() {
               )}
             >
               {importedPr && <PrBanner pr={importedPr} />}
-              <Editor data={data} repo={repo} onChange={handleField} issuesByField={issuesByField} />
+              <Editor
+                data={data}
+                repo={repo}
+                onChange={handleField}
+                issuesByField={issuesByField}
+                highlightTarget={highlightTarget}
+              />
             </div>
           )}
           {showOutput && (
@@ -406,12 +459,14 @@ export default function App() {
               <span className="text-indigo-600 dark:text-indigo-400 font-medium">Open Source</span>
             </div>
 
-            <div className="flex items-center gap-2 text-[11px]">
-              <span className="inline-flex items-center gap-1.5 rounded-full bg-emerald-50 dark:bg-emerald-950/40 border border-emerald-200/60 dark:border-emerald-800/60 px-2 py-0.5 text-emerald-700 dark:text-emerald-400 font-medium">
-                <span className="h-1.5 w-1.5 rounded-full bg-emerald-500 animate-pulse" />
-                100% Client-Side Engine
-              </span>
-              <span className="text-muted/70 hidden sm:inline">Zero tracking · No data stored</span>
+            <div className="flex items-center gap-3 text-[11px]">
+              <a href="https://github.com/AvarchLLC/EIPsInsight" target="_blank" rel="noreferrer" className="hover:text-fg transition-colors">
+                Contribute on GitHub
+              </a>
+              <span className="text-muted/40">·</span>
+              <a href="https://eips.ethereum.org" target="_blank" rel="noreferrer" className="hover:text-fg transition-colors">
+                eips.ethereum.org
+              </a>
             </div>
           </div>
         </div>
@@ -423,7 +478,7 @@ export default function App() {
           messages={messages}
           repo={repo}
           context={tab === "pr" && importedPr ? `PR #${importedPr.prNumber}` : ""}
-          onJump={jumpToLine}
+          onJump={handleJump}
           onClose={() => setShowValidation(false)}
           onOpenGuide={() => {
             setShowValidation(false);
@@ -436,12 +491,25 @@ export default function App() {
   );
 }
 
+/** Standout Faceted Ethereum Emblem Logo */
 function Logo() {
   return (
-    <div className="flex h-7 w-7 items-center justify-center rounded-lg bg-zinc-900 text-indigo-400 dark:bg-zinc-800 dark:text-indigo-300 ring-1 ring-indigo-500/20 shadow-xs">
-      <svg viewBox="0 0 24 24" className="h-4 w-4" fill="currentColor" aria-hidden>
-        <path d="M12 2L4.5 14.5L12 18.5L19.5 14.5L12 2Z" fill="currentColor" />
-        <path d="M4.5 14.5L12 22L19.5 14.5L12 18.5L4.5 14.5Z" fill="#818cf8" opacity="0.75" />
+    <div className="relative flex h-8 w-8 items-center justify-center rounded-xl bg-gradient-to-b from-zinc-900 to-zinc-950 dark:from-zinc-800 dark:to-zinc-900 border border-indigo-500/30 shadow-md shadow-indigo-500/10 group-hover:scale-105 group-hover:border-indigo-400 transition-all duration-300">
+      {/* Subtle outer glow */}
+      <span className="absolute -inset-0.5 rounded-xl bg-indigo-500/10 blur-xs -z-10 group-hover:bg-indigo-500/20 transition-all" />
+      <svg viewBox="0 0 24 24" className="h-4.5 w-4.5" fill="none" aria-hidden>
+        {/* Top left facet */}
+        <polygon points="12,2 4.5,14 12,11.5" fill="#a5b4fc" />
+        {/* Top right facet */}
+        <polygon points="12,2 12,11.5 19.5,14" fill="#818cf8" />
+        {/* Mid left facet */}
+        <polygon points="12,11.5 4.5,14 12,18" fill="#6366f1" />
+        {/* Mid right facet */}
+        <polygon points="12,11.5 12,18 19.5,14" fill="#4f46e5" />
+        {/* Bottom left facet */}
+        <polygon points="12,18.8 4.5,14.8 12,22.5" fill="#818cf8" opacity="0.8" />
+        {/* Bottom right facet */}
+        <polygon points="12,18.8 12,22.5 19.5,14.8" fill="#4338ca" opacity="0.9" />
       </svg>
     </div>
   );

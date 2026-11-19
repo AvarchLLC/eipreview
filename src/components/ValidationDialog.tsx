@@ -1,4 +1,4 @@
-import { AlertCircle, BookOpen, CheckCircle2, Info, X } from "lucide-react";
+import { AlertCircle, ArrowUpRight, BookOpen, CheckCircle2, Info, X } from "lucide-react";
 import type { RepoKind, ValidationMessage } from "../lib/types";
 import { cn } from "../lib/cn";
 
@@ -6,7 +6,7 @@ interface Props {
   messages: ValidationMessage[];
   repo: RepoKind;
   context: string;
-  onJump: (line?: number) => void;
+  onJump: (item: ValidationMessage) => void;
   onClose: () => void;
   onOpenGuide: () => void;
 }
@@ -27,14 +27,14 @@ export function ValidationDialog({ messages, repo, context, onJump, onClose, onO
 
   return (
     <div
-      className="fixed inset-0 z-50 flex items-center justify-center bg-black/40 p-4 backdrop-blur-xs"
+      className="fixed inset-0 z-50 flex items-center justify-center bg-black/50 p-4 backdrop-blur-xs"
       onClick={onClose}
     >
       <div
         className="flex max-h-[85vh] w-full max-w-xl flex-col overflow-hidden rounded-2xl border border-border bg-card shadow-2xl"
         onClick={(e) => e.stopPropagation()}
       >
-        {/* Header (Untitled UI Dialog style) */}
+        {/* Header */}
         <div className="flex items-center justify-between border-b border-border px-5 py-4">
           <div className="flex items-center gap-2.5">
             {counts.error > 0 ? (
@@ -118,44 +118,52 @@ export function ValidationDialog({ messages, repo, context, onJump, onClose, onO
                     {items.map((it, i) => (
                       <div
                         key={i}
+                        onClick={() => onJump(it)}
                         className={cn(
-                          "rounded-lg border p-3 transition-colors",
+                          "group cursor-pointer rounded-xl border p-3 transition-all hover:scale-[1.005] hover:shadow-sm",
                           it.level === "error"
-                            ? "border-error/20 bg-error-soft/60"
+                            ? "border-error/25 bg-error-soft/60 hover:border-error/60"
                             : it.level === "warning"
-                            ? "border-warning/20 bg-warning-soft/60"
-                            : "border-info/20 bg-info-soft/60"
+                            ? "border-warning/25 bg-warning-soft/60 hover:border-warning/60"
+                            : "border-info/25 bg-info-soft/60 hover:border-info/60"
                         )}
+                        title="Click to jump to this issue in the editor & markdown"
                       >
                         <div className="flex items-start gap-2.5">
                           {it.line ? (
-                            <button
-                              onClick={() => onJump(it.line)}
-                              title={`Jump to line ${it.line}`}
-                              className="mt-0.5 shrink-0 rounded border border-border bg-card px-1.5 py-0.5 font-mono text-[10px] font-semibold text-fg hover:border-fg/40 transition-colors"
-                            >
+                            <span className="mt-0.5 shrink-0 rounded border border-border bg-card px-1.5 py-0.5 font-mono text-[10px] font-semibold text-fg group-hover:border-fg/40 transition-colors">
                               L{it.line}
-                            </button>
+                            </span>
                           ) : (
                             <span className="mt-1.5 h-1.5 w-1.5 shrink-0 rounded-full bg-muted/50" />
                           )}
                           <div className="min-w-0 flex-1">
                             <div className="flex items-start justify-between gap-2">
-                              <p className="text-xs font-medium text-fg">{it.message}</p>
-                              <span
-                                className={cn(
-                                  "shrink-0 rounded border px-1.5 py-0.5 font-mono text-[9px] font-medium uppercase",
-                                  it.category === "ci"
-                                    ? "bg-blue-50 dark:bg-blue-950/40 text-blue-700 dark:text-blue-300 border-blue-200/60 dark:border-blue-800/60"
-                                    : "bg-indigo-50 dark:bg-indigo-950/40 text-indigo-700 dark:text-indigo-300 border-indigo-200/60 dark:border-indigo-800/60"
-                                )}
-                                title={it.category === "ci" ? "Enforced by repository CI" : "Authoring style guideline"}
-                              >
-                                {it.category}
-                              </span>
+                              <p className="text-xs font-medium text-fg group-hover:text-indigo-600 dark:group-hover:text-indigo-400 transition-colors">
+                                {it.message}
+                              </p>
+                              <div className="flex items-center gap-1.5 shrink-0">
+                                <span
+                                  className={cn(
+                                    "rounded border px-1.5 py-0.5 font-mono text-[9px] font-medium uppercase",
+                                    it.category === "ci"
+                                      ? "bg-blue-50 dark:bg-blue-950/40 text-blue-700 dark:text-blue-300 border-blue-200/60 dark:border-blue-800/60"
+                                      : "bg-indigo-50 dark:bg-indigo-950/40 text-indigo-700 dark:text-indigo-300 border-indigo-200/60 dark:border-indigo-800/60"
+                                  )}
+                                  title={it.category === "ci" ? "Enforced by repository CI" : "Authoring style guideline"}
+                                >
+                                  {it.category}
+                                </span>
+                                <ArrowUpRight className="h-3 w-3 text-muted group-hover:text-fg group-hover:translate-x-0.5 group-hover:-translate-y-0.5 transition-all" />
+                              </div>
                             </div>
-                            {it.section && (
-                              <p className="mt-1 text-[11px] text-muted font-mono">{it.section}</p>
+                            {(it.section || it.field) && (
+                              <p className="mt-1 text-[11px] text-muted font-mono flex items-center gap-1.5">
+                                <span>Section: {it.section || it.field}</span>
+                                <span className="text-[10px] text-indigo-500 opacity-0 group-hover:opacity-100 transition-opacity">
+                                  · Click to jump
+                                </span>
+                              </p>
                             )}
                           </div>
                         </div>

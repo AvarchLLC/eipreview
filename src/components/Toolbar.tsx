@@ -11,6 +11,7 @@ import {
   Pencil,
   Plus,
   Search,
+  Sparkles,
   Sun,
 } from "lucide-react";
 import type { RepoKind, TabMode, ViewMode } from "../lib/types";
@@ -184,25 +185,30 @@ export function Toolbar(p: Props) {
           </span>
         )}
 
-        {/* Validate button (Untitled UI "Publish changes" style solid dark button with subtle emerald accent) */}
+        {/* Validate button with amicro-inspired micro-interactions */}
         <button
           onClick={p.onValidate}
           disabled={p.validating}
-          className="inline-flex items-center gap-1.5 rounded-lg bg-primary px-3.5 py-1.5 text-xs font-semibold text-primary-fg shadow-xs transition-colors hover:bg-primary-hover disabled:opacity-50"
+          className="group relative overflow-hidden inline-flex items-center gap-1.5 rounded-lg bg-primary px-3.5 py-1.5 text-xs font-semibold text-primary-fg shadow-xs transition-all duration-200 hover:shadow-md hover:shadow-indigo-500/15 hover:-translate-y-0.5 active:translate-y-0 active:scale-[0.96] disabled:opacity-50 disabled:pointer-events-none"
         >
+          {/* Subtle light sweep animation on hover */}
+          <span className="pointer-events-none absolute inset-0 -translate-x-full group-hover:translate-x-full transition-transform duration-700 bg-gradient-to-r from-transparent via-white/15 to-transparent" />
+
           {p.validating ? (
             <Loader2 className="h-3.5 w-3.5 animate-spin text-indigo-400" />
+          ) : p.validated && p.issueCount === 0 ? (
+            <CheckCircle2 className="h-3.5 w-3.5 text-emerald-400 group-hover:scale-110 transition-transform" />
           ) : (
-            <CheckCircle2 className="h-3.5 w-3.5 text-emerald-400 dark:text-emerald-500" />
+            <Sparkles className="h-3.5 w-3.5 text-indigo-400 group-hover:rotate-12 group-hover:scale-110 transition-transform duration-200" />
           )}
-          Validate
+          <span className="relative font-medium tracking-tight">Validate</span>
         </button>
 
         {/* Download draft button */}
         <button
           onClick={p.onDownload}
           title="Download Markdown file"
-          className="inline-flex items-center gap-1.5 rounded-lg border border-border bg-card px-3 py-1.5 text-xs font-medium text-fg shadow-2xs transition-colors hover:bg-zinc-50 dark:hover:bg-zinc-800"
+          className="inline-flex items-center gap-1.5 rounded-lg border border-border bg-card px-3 py-1.5 text-xs font-medium text-fg shadow-2xs transition-all duration-200 hover:bg-zinc-50 dark:hover:bg-zinc-800 hover:-translate-y-0.5 active:scale-[0.97]"
         >
           <Download className="h-3.5 w-3.5 opacity-70" />
           <span className="hidden sm:inline">Export</span>
