@@ -37,7 +37,7 @@ interface Props {
   issueCount: number;
   onShowIssues: () => void;
   theme: "light" | "dark";
-  onToggleTheme: () => void;
+  onToggleTheme: (event?: React.MouseEvent) => void;
   onOpenGuide: () => void;
 }
 
@@ -49,13 +49,13 @@ const TABS: { key: TabMode; label: (r: RepoKind) => string; icon: typeof Plus }[
 
 export function Toolbar(p: Props) {
   const pillGroup =
-    "inline-flex items-center rounded-lg border border-border bg-zinc-100/70 dark:bg-zinc-800/60 p-0.5 gap-0.5";
+    "inline-flex items-center rounded-lg border border-border bg-zinc-100 dark:bg-zinc-900 p-0.5 gap-0.5";
   const pillItem = (active: boolean, colorTone?: string) =>
     cn(
       "inline-flex items-center gap-1.5 px-3 py-1.5 text-xs font-medium transition-all rounded-md select-none",
       active
         ? cn("bg-card text-fg shadow-xs font-semibold", colorTone)
-        : "text-muted hover:text-fg hover:bg-card/50"
+        : "text-muted hover:text-fg hover:bg-zinc-200/50 dark:hover:bg-zinc-800/50"
     );
 
   return (
@@ -185,21 +185,18 @@ export function Toolbar(p: Props) {
           </span>
         )}
 
-        {/* Validate button with amicro-inspired micro-interactions (consistent sleek dark button in both themes) */}
+        {/* Validate button with precision geometry & amicro-inspired micro-interactions */}
         <button
           onClick={p.onValidate}
           disabled={p.validating}
-          className="group relative overflow-hidden inline-flex items-center gap-1.5 rounded-lg bg-zinc-950 hover:bg-zinc-900 text-white border border-zinc-800 px-3.5 py-1.5 text-xs font-semibold shadow-xs transition-all duration-200 hover:shadow-md hover:shadow-indigo-500/15 hover:-translate-y-0.5 active:translate-y-0 active:scale-[0.96] disabled:opacity-50 disabled:pointer-events-none"
+          className="group relative h-8 inline-flex items-center gap-1.5 rounded-lg bg-zinc-900 hover:bg-zinc-800 active:bg-zinc-950 text-white border border-zinc-700/60 dark:border-zinc-700 px-3 text-xs font-semibold tracking-tight shadow-xs transition-all duration-150 active:scale-[0.97] disabled:opacity-50 disabled:pointer-events-none"
         >
-          {/* Subtle light sweep animation on hover */}
-          <span className="pointer-events-none absolute inset-0 -translate-x-full group-hover:translate-x-full transition-transform duration-700 bg-gradient-to-r from-transparent via-white/15 to-transparent" />
-
           {p.validating ? (
-            <Loader2 className="h-3.5 w-3.5 animate-spin text-indigo-400" />
+            <Loader2 className="h-3.5 w-3.5 animate-spin text-indigo-400 shrink-0" />
           ) : p.validated && p.issueCount === 0 ? (
-            <CheckCircle2 className="h-3.5 w-3.5 text-emerald-400 group-hover:scale-110 transition-transform" />
+            <CheckCircle2 className="h-3.5 w-3.5 text-emerald-400 group-hover:scale-110 transition-transform shrink-0" />
           ) : (
-            <Sparkles className="h-3.5 w-3.5 text-indigo-400 group-hover:rotate-12 group-hover:scale-110 transition-transform duration-200" />
+            <Sparkles className="h-3.5 w-3.5 text-indigo-400 group-hover:rotate-12 group-hover:scale-110 transition-transform duration-200 shrink-0" />
           )}
           <span className="relative font-medium tracking-tight">Validate</span>
         </button>
@@ -208,9 +205,9 @@ export function Toolbar(p: Props) {
         <button
           onClick={p.onDownload}
           title="Download Markdown file"
-          className="inline-flex items-center gap-1.5 rounded-lg border border-border bg-card px-3 py-1.5 text-xs font-medium text-fg shadow-2xs transition-all duration-200 hover:bg-zinc-50 dark:hover:bg-zinc-800 hover:-translate-y-0.5 active:scale-[0.97]"
+          className="h-8 inline-flex items-center gap-1.5 rounded-lg border border-border bg-card px-3 text-xs font-medium text-fg shadow-2xs transition-all duration-150 hover:bg-zinc-50 dark:hover:bg-zinc-800 active:scale-[0.97]"
         >
-          <Download className="h-3.5 w-3.5 opacity-70" />
+          <Download className="h-3.5 w-3.5 opacity-70 shrink-0" />
           <span className="hidden sm:inline">Export</span>
         </button>
 
@@ -219,14 +216,14 @@ export function Toolbar(p: Props) {
           <button
             onClick={p.onOpenGuide}
             title="Validation rules guide"
-            className="rounded-lg p-1.5 text-muted transition-colors hover:bg-card hover:text-indigo-500"
+            className="h-8 w-8 inline-flex items-center justify-center rounded-lg text-muted transition-colors hover:bg-card hover:text-indigo-500"
           >
             <BookOpen className="h-4 w-4" />
           </button>
           <button
-            onClick={p.onToggleTheme}
-            title="Toggle theme"
-            className="rounded-lg p-1.5 text-muted transition-colors hover:bg-card hover:text-fg"
+            onClick={(e) => p.onToggleTheme(e)}
+            title="Toggle theme (circular transition)"
+            className="h-8 w-8 inline-flex items-center justify-center rounded-lg text-muted transition-colors hover:bg-card hover:text-fg"
           >
             {p.theme === "dark" ? <Sun className="h-4 w-4 text-amber-400" /> : <Moon className="h-4 w-4" />}
           </button>

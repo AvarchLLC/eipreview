@@ -67,7 +67,21 @@ export default function App() {
   useEffect(() => {
     const onPop = () => {
       const isAbout = window.location.pathname === "/about" || window.location.hash === "#/about";
-      setPage(isAbout ? "about" : "editor");
+      const targetPage = isAbout ? "about" : "editor";
+      const supportsViewTransition =
+        typeof document !== "undefined" &&
+        "startViewTransition" in document &&
+        !window.matchMedia("(prefers-reduced-motion: reduce)").matches;
+
+      if (supportsViewTransition) {
+        (document as unknown as {
+          startViewTransition: (cb: () => void) => void;
+        }).startViewTransition(() => {
+          setPage(targetPage);
+        });
+      } else {
+        setPage(targetPage);
+      }
     };
     window.addEventListener("popstate", onPop);
     window.addEventListener("hashchange", onPop);
@@ -77,17 +91,62 @@ export default function App() {
     };
   }, []);
 
-  const navigateTo = (p: "editor" | "about") => {
-    setPage(p);
-    try {
-      if (p === "about") {
-        window.history.pushState(null, "", "/about");
-      } else {
-        window.history.pushState(null, "", "/");
+  const navigateTo = (p: "editor" | "about", event?: React.MouseEvent | MouseEvent) => {
+    if (page === p) return;
+
+    const changePage = () => {
+      setPage(p);
+      try {
+        if (p === "about") {
+          window.history.pushState(null, "", "/about");
+        } else {
+          window.history.pushState(null, "", "/");
+        }
+      } catch {
+        // fallback
       }
-    } catch {
-      // fallback
+    };
+
+    const supportsViewTransition =
+      typeof document !== "undefined" &&
+      "startViewTransition" in document &&
+      !window.matchMedia("(prefers-reduced-motion: reduce)").matches;
+
+    if (!supportsViewTransition) {
+      changePage();
+      return;
     }
+
+    const x = event?.clientX ?? window.innerWidth / 2;
+    const y = event?.clientY ?? window.innerHeight / 2;
+    const endRadius = Math.hypot(
+      Math.max(x, window.innerWidth - x),
+      Math.max(y, window.innerHeight - y)
+    );
+
+    const transition = (document as unknown as {
+      startViewTransition: (cb: () => void) => { ready: Promise<void> };
+    }).startViewTransition(() => {
+      changePage();
+    });
+
+    transition.ready.then(() => {
+      const clipPath = [
+        `circle(0px at ${x}px ${y}px)`,
+        `circle(${endRadius}px at ${x}px ${y}px)`,
+      ];
+
+      document.documentElement.animate(
+        {
+          clipPath: clipPath,
+        },
+        {
+          duration: 400,
+          easing: "cubic-bezier(0.2, 0, 0, 1)",
+          pseudoElement: "::view-transition-new(root)",
+        }
+      );
+    });
   };
 
   const [tab, setTab] = useState<TabMode>("new");
@@ -268,7 +327,7 @@ export default function App() {
 
   // Render the About Landing Page if on /about
   if (page === "about") {
-    return <AboutPage onBack={() => navigateTo("editor")} theme={theme} onToggleTheme={toggle} />;
+    return <AboutPage onBack={(e) => navigateTo("editor", e)} theme={theme} onToggleTheme={toggle} />;
   }
 
   return (
@@ -279,7 +338,7 @@ export default function App() {
           {/* Brand Row */}
           <div className="mb-2.5 flex items-center justify-between">
             <div
-              onClick={() => navigateTo("editor")}
+              onClick={(e) => navigateTo("editor", e)}
               className="flex items-center gap-2.5 cursor-pointer group"
               title="EIP Review"
             >
@@ -317,7 +376,7 @@ export default function App() {
 
               {/* Subtle ? button navigating to /about landing page */}
               <button
-                onClick={() => navigateTo("about")}
+                onClick={(e) => navigateTo("about", e)}
                 title="About EIP Review & Documentation"
                 className="inline-flex items-center justify-center h-7 w-7 rounded-lg border border-border bg-card text-muted hover:text-fg hover:border-fg/30 hover:bg-zinc-50 dark:hover:bg-zinc-800 transition-colors shadow-2xs text-xs font-bold"
               >
@@ -395,7 +454,7 @@ export default function App() {
             {/* Brand Column */}
             <div className="space-y-3 md:col-span-1">
               <div
-                onClick={() => navigateTo("editor")}
+                onClick={(e) => navigateTo("editor", e)}
                 className="flex items-center gap-2 cursor-pointer"
               >
                 <Logo />
@@ -514,7 +573,7 @@ export default function App() {
 
             <div className="flex items-center gap-3 text-[11px]">
               <button
-                onClick={() => navigateTo("about")}
+                onClick={(e) => navigateTo("about", e)}
                 className="text-muted hover:text-fg transition-colors"
               >
                 About & Architecture
@@ -561,19 +620,21 @@ export default function App() {
   );
 }
 
-/** Standout Faceted Ethereum Emblem Logo (consistent obsidian container in both modes) */
+/** Clean Ethereum Diamond Emblem Logo (matching the favicon design) */
 function Logo() {
   return (
-    <div className="relative flex h-8 w-8 items-center justify-center rounded-xl bg-zinc-950 border border-zinc-800 shadow-xs group-hover:scale-105 group-hover:border-indigo-500/40 transition-all duration-300">
-      <svg viewBox="0 0 24 24" className="h-4.5 w-4.5" fill="none" aria-hidden>
-        {/* Top left facet */}
-        <path d="M12 2L4.5 14L12 11.5V2Z" fill="#a5b4fc" />
-        {/* Top right facet */}
-        <path d="M12 2V11.5L19.5 14L12 2Z" fill="#818cf8" />
-        {/* Mid left facet */}
-        <path d="M12 13.2L4.5 15.2L12 22V13.2Z" fill="#6366f1" />
-        {/* Mid right facet */}
-        <path d="M12 13.2V22L19.5 15.2L12 13.2Z" fill="#4338ca" />
+    <div className="flex items-center justify-center shrink-0 group-hover:scale-105 transition-transform duration-300">
+      <svg viewBox="0 0 32 32" className="h-8 w-8 sm:h-9 sm:w-9 drop-shadow-xs" fill="none" aria-hidden>
+        {/* Top facet */}
+        <path
+          d="M16 2L6 18.5L16 23.5L26 18.5L16 2Z"
+          className="fill-zinc-900 dark:fill-zinc-100 transition-colors"
+        />
+        {/* Bottom facet */}
+        <path
+          d="M6 18.5L16 30L26 18.5L16 23.5L6 18.5Z"
+          className="fill-zinc-500 dark:fill-zinc-400 transition-colors"
+        />
       </svg>
     </div>
   );

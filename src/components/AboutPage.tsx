@@ -1,5 +1,4 @@
 import {
-  ArrowLeft,
   ArrowRight,
   CheckCircle2,
   Code2,
@@ -7,40 +6,36 @@ import {
   Github,
   Heart,
   Layers,
+  Moon,
   Search,
   ShieldCheck,
   Sparkles,
+  Sun,
   Terminal,
   Zap,
 } from "lucide-react";
 
 interface Props {
-  onBack: () => void;
+  onBack: (event?: React.MouseEvent) => void;
   theme: "light" | "dark";
-  onToggleTheme: () => void;
+  onToggleTheme: (event?: React.MouseEvent) => void;
 }
 
-export function AboutPage({ onBack }: Props) {
+export function AboutPage({ onBack, theme, onToggleTheme }: Props) {
   return (
-    <div className="min-h-screen flex flex-col bg-bg text-body selection:bg-indigo-500/20 selection:text-indigo-600 dark:selection:text-indigo-300">
+    <div className="min-h-screen flex flex-col bg-bg text-body selection:bg-zinc-200 selection:text-zinc-900 dark:selection:bg-zinc-800 dark:selection:text-zinc-100">
       {/* Top Navbar */}
       <header className="sticky top-0 z-30 border-b border-border bg-bg/95 backdrop-blur-md">
         <div className="mx-auto flex w-full max-w-[1400px] items-center justify-between px-4 py-3 sm:px-6">
-          <div className="flex items-center gap-3">
-            <button
-              onClick={onBack}
-              className="inline-flex items-center gap-1.5 rounded-lg border border-border bg-card px-2.5 py-1 text-xs font-medium text-fg shadow-2xs hover:bg-zinc-50 dark:hover:bg-zinc-800 transition-colors"
-            >
-              <ArrowLeft className="h-3.5 w-3.5" />
-              <span>Back to Editor</span>
-            </button>
-            <div className="h-4 w-px bg-border hidden sm:block" />
-            <div className="flex items-center gap-2">
-              <AboutLogo />
-              <div className="flex items-baseline gap-1 select-none">
-                <span className="text-[17px] font-black tracking-[-0.04em] text-fg">EIP</span>
-                <span className="text-[17px] font-light tracking-[-0.02em] text-zinc-500 dark:text-zinc-400">Review</span>
-              </div>
+          <div
+            onClick={(e) => onBack(e)}
+            className="flex items-center gap-2.5 cursor-pointer group"
+            title="Return to IDE"
+          >
+            <AboutLogo />
+            <div className="flex items-baseline gap-1 select-none">
+              <span className="text-[18px] font-black tracking-[-0.04em] text-fg">EIP</span>
+              <span className="text-[18px] font-light tracking-[-0.02em] text-zinc-500 dark:text-zinc-400">Review</span>
             </div>
           </div>
 
@@ -52,11 +47,18 @@ export function AboutPage({ onBack }: Props) {
               className="inline-flex items-center gap-1.5 rounded-lg border border-border bg-card px-3 py-1.5 text-xs font-medium text-fg shadow-2xs hover:bg-zinc-50 dark:hover:bg-zinc-800 transition-colors"
             >
               <Github className="h-3.5 w-3.5" />
-              <span>GitHub</span>
+              <span className="hidden sm:inline">GitHub</span>
             </a>
             <button
-              onClick={onBack}
-              className="inline-flex items-center gap-1.5 rounded-lg bg-zinc-950 hover:bg-zinc-900 text-white border border-zinc-800 px-3.5 py-1.5 text-xs font-semibold shadow-xs transition-colors"
+              onClick={(e) => onToggleTheme(e)}
+              title="Toggle theme (circular transition)"
+              className="h-8 w-8 inline-flex items-center justify-center rounded-lg border border-border bg-card text-muted hover:text-fg hover:bg-zinc-50 dark:hover:bg-zinc-800 transition-colors shadow-2xs"
+            >
+              {theme === "dark" ? <Sun className="h-4 w-4 text-amber-400" /> : <Moon className="h-4 w-4" />}
+            </button>
+            <button
+              onClick={(e) => onBack(e)}
+              className="inline-flex items-center gap-1.5 rounded-lg bg-zinc-950 hover:bg-zinc-900 text-white border border-zinc-800 px-3.5 py-1.5 text-xs font-semibold shadow-xs transition-all active:scale-[0.97]"
             >
               Open IDE
             </button>
@@ -83,7 +85,7 @@ export function AboutPage({ onBack }: Props) {
 
           <div className="mt-8 flex flex-wrap items-center justify-center gap-3">
             <button
-              onClick={onBack}
+              onClick={(e) => onBack(e)}
               className="inline-flex items-center gap-2 rounded-xl bg-zinc-950 hover:bg-zinc-900 text-white border border-zinc-800 px-5 py-2.5 text-sm font-semibold shadow-sm transition-all duration-200 hover:-translate-y-0.5 active:translate-y-0"
             >
               <span>Start Authoring</span>
@@ -279,7 +281,7 @@ export function AboutPage({ onBack }: Props) {
             <span>Released under CC0 1.0 Universal</span>
           </div>
           <div className="flex items-center gap-4">
-            <button onClick={onBack} className="text-fg hover:underline font-medium">
+            <button onClick={(e) => onBack(e)} className="text-fg hover:underline font-medium">
               Launch IDE
             </button>
             <a href="https://github.com/AvarchLLC/eipreview" target="_blank" rel="noreferrer" className="hover:text-fg transition-colors">
@@ -297,12 +299,18 @@ export function AboutPage({ onBack }: Props) {
 
 function AboutLogo() {
   return (
-    <div className="relative flex h-7 w-7 items-center justify-center rounded-lg bg-zinc-950 border border-zinc-800 shadow-xs">
-      <svg viewBox="0 0 24 24" className="h-4 w-4" fill="none" aria-hidden>
-        <path d="M12 2L4.5 14L12 11.5V2Z" fill="#a5b4fc" />
-        <path d="M12 2V11.5L19.5 14L12 2Z" fill="#818cf8" />
-        <path d="M12 13.5L4.5 15.5L12 22V13.5Z" fill="#6366f1" />
-        <path d="M12 13.5V22L19.5 15.5L12 13.5Z" fill="#4338ca" />
+    <div className="flex items-center justify-center shrink-0">
+      <svg viewBox="0 0 32 32" className="h-7 w-7 sm:h-8 sm:w-8 drop-shadow-xs" fill="none" aria-hidden>
+        {/* Top facet */}
+        <path
+          d="M16 2L6 18.5L16 23.5L26 18.5L16 2Z"
+          className="fill-zinc-900 dark:fill-zinc-100 transition-colors"
+        />
+        {/* Bottom facet */}
+        <path
+          d="M6 18.5L16 30L26 18.5L16 23.5L6 18.5Z"
+          className="fill-zinc-500 dark:fill-zinc-400 transition-colors"
+        />
       </svg>
     </div>
   );

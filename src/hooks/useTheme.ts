@@ -16,14 +16,63 @@ export function useTheme() {
     try {
       localStorage.setItem(KEY, t);
     } catch {
-      // ignore (private mode)
+      // ignore
     }
     setTheme(t);
   }, []);
 
-  const toggle = useCallback(() => apply(current() === "dark" ? "light" : "dark"), [apply]);
+  // Circular clip-path transition from the click position
+  const toggle = useCallback(
+    (event?: React.MouseEvent | MouseEvent) => {
+      const nextTheme: Theme = current() === "dark" ? "light" : "dark";
 
-  // Follow the system preference until the user makes an explicit choice.
+      // Check if browser supports View Transitions and user hasn't requested reduced motion
+      const supportsViewTransition =
+        typeof document !== "undefined" &&
+        "startViewTransition" in document &&
+        !window.matchMedia("(prefers-reduced-motion: reduce)").matches;
+
+      if (!supportsViewTransition || !event) {
+        apply(nextTheme);
+        return;
+      }
+
+      const x = event.clientX;
+      const y = event.clientY;
+      const endRadius = Math.hypot(
+        Math.max(x, window.innerWidth - x),
+        Math.max(y, window.innerHeight - y)
+      );
+
+      // Trigger the native view transition
+      const transition = (document as unknown as {
+        startViewTransition: (cb: () => void) => { ready: Promise<void> };
+      }).startViewTransition(() => {
+        apply(nextTheme);
+      });
+
+      transition.ready.then(() => {
+        const clipPath = [
+          `circle(0px at ${x}px ${y}px)`,
+          `circle(${endRadius}px at ${x}px ${y}px)`,
+        ];
+
+        document.documentElement.animate(
+          {
+            clipPath: clipPath,
+          },
+          {
+            duration: 420,
+            easing: "cubic-bezier(0.2, 0, 0, 1)",
+            pseudoElement: "::view-transition-new(root)",
+          }
+        );
+      });
+    },
+    [apply]
+  );
+
+  // Follow system preference until the user makes an explicit choice
   useEffect(() => {
     const mq = window.matchMedia("(prefers-color-scheme: dark)");
     const onChange = () => {

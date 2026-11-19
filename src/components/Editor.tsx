@@ -301,7 +301,7 @@ export function Editor({ data, repo, onChange, issuesByField, highlightTarget }:
 
                 {/* Section Editor Area */}
                 {isOpen && (
-                  <div className="border-t border-border bg-bg/50 p-3 sm:p-4 space-y-2.5">
+                  <div className="border-t border-border bg-bg p-3 sm:p-4 space-y-2.5">
                     {/* Header info & inline formatting toolbar */}
                     <div className="flex flex-wrap items-center justify-between gap-2">
                       <p className="text-[11px] leading-relaxed text-muted">{s.hint}</p>

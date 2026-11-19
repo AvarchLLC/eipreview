@@ -48,16 +48,16 @@ export const OutputPane = forwardRef<HTMLTextAreaElement, Props>(function Output
   return (
     <div className="flex h-full flex-col bg-card">
       {/* Pane Toolbar */}
-      <div className="flex items-center justify-between border-b border-border bg-bg/50 px-3 py-2">
+      <div className="flex items-center justify-between border-b border-border bg-bg px-3 py-2">
         {/* Tab switch */}
-        <div className="inline-flex items-center rounded-lg border border-border bg-zinc-100/70 dark:bg-zinc-800/60 p-0.5 gap-0.5">
+        <div className="inline-flex items-center rounded-lg border border-border bg-zinc-100 dark:bg-zinc-900 p-0.5 gap-0.5">
           <button
             onClick={() => onTab("code")}
             className={cn(
               "inline-flex items-center gap-1.5 rounded-md px-2.5 py-1 text-xs font-medium transition-all select-none",
               tab === "code"
                 ? "bg-card text-fg shadow-xs font-semibold"
-                : "text-muted hover:text-fg hover:bg-card/40"
+                : "text-muted hover:text-fg hover:bg-zinc-200/50 dark:hover:bg-zinc-800/50"
             )}
           >
             <Code2 className="h-3.5 w-3.5 opacity-70" /> Raw Markdown
@@ -68,7 +68,7 @@ export const OutputPane = forwardRef<HTMLTextAreaElement, Props>(function Output
               "inline-flex items-center gap-1.5 rounded-md px-2.5 py-1 text-xs font-medium transition-all select-none",
               tab === "preview"
                 ? "bg-card text-fg shadow-xs font-semibold"
-                : "text-muted hover:text-fg hover:bg-card/40"
+                : "text-muted hover:text-fg hover:bg-zinc-200/50 dark:hover:bg-zinc-800/50"
             )}
           >
             <Eye className="h-3.5 w-3.5 opacity-70" /> Rendered
@@ -106,14 +106,14 @@ export const OutputPane = forwardRef<HTMLTextAreaElement, Props>(function Output
           <div className="mx-auto max-w-3xl p-5 sm:p-8">
             {rows.length > 0 && (
               <div className="mb-8 overflow-hidden rounded-xl border border-border shadow-xs">
-                <div className="border-b border-border bg-zinc-50/70 dark:bg-zinc-800/40 px-3 py-2 text-[11px] font-semibold uppercase tracking-wider text-muted">
+                <div className="border-b border-border bg-zinc-50 dark:bg-zinc-900 px-3 py-2 text-[11px] font-semibold uppercase tracking-wider text-muted">
                   Preamble Metadata
                 </div>
                 <table className="w-full text-xs">
                   <tbody>
                     {rows.map(([k, v], i) => (
-                      <tr key={i} className="border-b border-border/60 last:border-0 hover:bg-zinc-50/40 dark:hover:bg-zinc-800/20">
-                        <td className="w-44 bg-zinc-50/30 dark:bg-zinc-800/10 px-3 py-2 font-mono text-[11px] font-medium text-muted">
+                      <tr key={i} className="border-b border-border/60 last:border-0 hover:bg-zinc-50 dark:hover:bg-zinc-900/60">
+                        <td className="w-44 bg-zinc-50 dark:bg-zinc-900/40 px-3 py-2 font-mono text-[11px] font-medium text-muted">
                           {k}
                         </td>
                         <td className="px-3 py-2 text-body">{v}</td>
