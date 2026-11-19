@@ -379,6 +379,22 @@ export function validateProposal(md: string, opts: ValidateOptions = {}): Valida
     }
   }
 
+  // Lowercase keywords in Specification (authoring suggestion)
+  const specSec = sections.find((s) => s.heading === "Specification");
+  if (specSec) {
+    const lowercaseMatches = specSec.content.match(/\b(must not|must|shall not|shall|should not|should)\b/g);
+    if (lowercaseMatches && lowercaseMatches.length > 0) {
+      const uniq = [...new Set(lowercaseMatches)];
+      m.push({
+        level: "info",
+        category: "authoring",
+        message: `Specification contains lowercase words (${uniq.join(", ")}). If intended as normative requirements, capitalize to RFC 2119 (${uniq.map((w) => w.toUpperCase()).join(", ")})`,
+        section: "Specification",
+        line: specSec.line,
+      });
+    }
+  }
+
   // Prose
   const badEip = body.match(/\bEIP\s+\d+\b/i);
   if (badEip) m.push({ level: "warning", category: "ci", message: `Reference EIPs as "EIP-N" with a hyphen, not "EIP N"`, section: "Prose & Style", line: lineOf(md, bodyStart + (badEip.index ?? 0)) });
@@ -390,6 +406,32 @@ export function validateProposal(md: string, opts: ValidateOptions = {}): Valida
     const re = new RegExp(pattern.source, pattern.flags);
     const mm = re.exec(body);
     if (mm) m.push({ level: "warning", category: "authoring", message: `Link to ${name} is not on the allowed link list`, section: "Links & References", line: lineOf(md, bodyStart + mm.index) });
+  }
+
+  // Images (EIP-1 assets structure)
+  const imageRegex = /!\[([^\]]*)\]\(([^)]+)\)/g;
+  let imgMatch: RegExpExecArray | null;
+  while ((imgMatch = imageRegex.exec(body)) !== null) {
+    const [, alt, src] = imgMatch;
+    const cleanSrc = src.trim();
+    const line = lineOf(md, bodyStart + imgMatch.index);
+    if (/^https?:\/\//i.test(cleanSrc)) {
+      m.push({
+        level: "warning",
+        category: "ci",
+        message: `Image "${alt || "unnamed"}" points to an external URL. EIP-1 requires images to be placed in ../assets/${opts.repo || "eip"}-N/`,
+        section: "Links & References",
+        line,
+      });
+    } else if (!cleanSrc.startsWith("../assets/") && !cleanSrc.startsWith("assets/")) {
+      m.push({
+        level: "info",
+        category: "authoring",
+        message: `Image path "${cleanSrc}" should follow standard EIP assets structure: "../assets/${opts.repo || "eip"}-N/${cleanSrc.split("/").pop()}"`,
+        section: "Links & References",
+        line,
+      });
+    }
   }
 
   // Write-as-if-Final (authoring)

@@ -3,6 +3,7 @@ import {
   Bold,
   ChevronDown,
   Code,
+  Image as ImageIcon,
   Info,
   Italic,
   Link,
@@ -13,10 +14,22 @@ import {
 import type { ProposalData, ProposalField, RepoKind, ValidationMessage } from "../lib/types";
 import { PREAMBLE_FIELDS, SECTION_FIELDS, RFC_2119_BOILERPLATE } from "../data/template";
 import { cn } from "../lib/cn";
+import { ImageEmbedModal } from "./ImageEmbedModal";
 
 function getNormativeMatches(text: string) {
   if (!text) return [];
   const regex = /\b(MUST NOT|MUST|REQUIRED|SHALL NOT|SHALL|SHOULD NOT|SHOULD|NOT RECOMMENDED|RECOMMENDED|OPTIONAL|MAY)\b/g;
+  const counts = new Map<string, number>();
+  let match: RegExpExecArray | null;
+  while ((match = regex.exec(text)) !== null) {
+    counts.set(match[0], (counts.get(match[0]) || 0) + 1);
+  }
+  return Array.from(counts.entries()).map(([kw, count]) => ({ kw, count }));
+}
+
+function getLowercaseNormativeMatches(text: string) {
+  if (!text) return [];
+  const regex = /\b(must not|must|required|shall not|shall|should not|should|not recommended|recommended|optional|may)\b/g;
   const counts = new Map<string, number>();
   let match: RegExpExecArray | null;
   while ((match = regex.exec(text)) !== null) {
@@ -52,7 +65,7 @@ function SectionTextarea({
 
   const backdropTokens = useMemo(() => {
     if (!value) return null;
-    const regex = /\b(MUST NOT|MUST|REQUIRED|SHALL NOT|SHALL|SHOULD NOT|SHOULD|NOT RECOMMENDED|RECOMMENDED|OPTIONAL|MAY)\b/g;
+    const regex = /\b(MUST NOT|MUST|REQUIRED|SHALL NOT|SHALL|SHOULD NOT|SHOULD|NOT RECOMMENDED|RECOMMENDED|OPTIONAL|MAY|must not|must|required|shall not|shall|should not|should|not recommended|recommended|optional|may)\b/g;
     const parts: React.ReactNode[] = [];
     let lastIdx = 0;
     let match: RegExpExecArray | null;
@@ -62,19 +75,41 @@ function SectionTextarea({
         parts.push(value.slice(lastIdx, match.index));
       }
       const kw = match[0];
-      parts.push(
-        <mark
-          key={match.index}
-          className={cn(
-            "rounded-xs font-bold ring-1 transition-all select-none",
-            !isSpecification
-              ? "bg-amber-300/80 dark:bg-amber-400/50 text-transparent ring-amber-500/70"
-              : "bg-indigo-200/60 dark:bg-indigo-500/35 text-transparent ring-indigo-400/40"
-          )}
-        >
-          {kw}
-        </mark>
-      );
+      const isUpper = kw === kw.toUpperCase();
+
+      if (!isSpecification && isUpper) {
+        // Uppercase normative keyword in non-specification section (forbidden/advisory warning)
+        parts.push(
+          <mark
+            key={match.index}
+            className="rounded-xs font-bold ring-1 transition-all select-none bg-amber-300/80 dark:bg-amber-400/50 text-transparent ring-amber-500/70"
+          >
+            {kw}
+          </mark>
+        );
+      } else if (isSpecification && isUpper) {
+        // Uppercase normative keyword in specification (official RFC 2119 requirement)
+        parts.push(
+          <mark
+            key={match.index}
+            className="rounded-xs font-bold ring-1 transition-all select-none bg-indigo-200/70 dark:bg-indigo-500/40 text-transparent ring-indigo-400/50"
+          >
+            {kw}
+          </mark>
+        );
+      } else if (isSpecification && !isUpper) {
+        // Lowercase keyword in specification (e.g. "must") - highlight so authors/reviewers see it clearly
+        parts.push(
+          <mark
+            key={match.index}
+            className="rounded-xs ring-1 ring-purple-400/60 transition-all select-none bg-purple-200/60 dark:bg-purple-500/35 text-transparent"
+          >
+            {kw}
+          </mark>
+        );
+      } else {
+        parts.push(kw);
+      }
       lastIdx = regex.lastIndex;
     }
     if (lastIdx < value.length) {
@@ -141,6 +176,26 @@ export function Editor({ data, repo, onChange, issuesByField, highlightTarget }:
   });
 
   const [preambleOpen, setPreambleOpen] = useState(true);
+
+  // State for image embed modal
+  const [imageModal, setImageModal] = useState<{
+    isOpen: boolean;
+    sectionKey: ProposalField | null;
+    sectionName: string;
+  }>({
+    isOpen: false,
+    sectionKey: null,
+    sectionName: "",
+  });
+
+  const openImageModal = (sectionKey: ProposalField, sectionName: string) => {
+    setImageModal({ isOpen: true, sectionKey, sectionName });
+  };
+
+  const handleInsertImage = (snippet: string) => {
+    if (!imageModal.sectionKey) return;
+    insertFormatting(imageModal.sectionKey, snippet);
+  };
 
   // Synchronize scrolling and auto-expanding when user clicks a validation issue
   useEffect(() => {
@@ -250,6 +305,16 @@ export function Editor({ data, repo, onChange, issuesByField, highlightTarget }:
     const updated = text.replace(
       /\b(MUST NOT|MUST|REQUIRED|SHALL NOT|SHALL|SHOULD NOT|SHOULD|NOT RECOMMENDED|RECOMMENDED|OPTIONAL|MAY)\b/g,
       (m) => m.toLowerCase()
+    );
+    onChange(sectionKey, updated);
+  };
+
+  /** Convert lowercase keywords in Specification to uppercase RFC 2119 requirements (e.g. must -> MUST) */
+  const capitalizeNormativeKeywords = (sectionKey: ProposalField) => {
+    const text = data[sectionKey] || "";
+    const updated = text.replace(
+      /\b(must not|must|required|shall not|shall|should not|should|not recommended|recommended|optional|may)\b/g,
+      (m) => m.toUpperCase()
     );
     onChange(sectionKey, updated);
   };
@@ -455,6 +520,7 @@ export function Editor({ data, repo, onChange, issuesByField, highlightTarget }:
             const empty = !data[s.key]?.trim();
             const isHighlighted = highlightTarget === s.key;
             const normativeMatches = getNormativeMatches(data[s.key]);
+            const lowercaseMatches = s.key === "specification" ? getLowercaseNormativeMatches(data[s.key]) : [];
 
             return (
               <div
@@ -562,6 +628,14 @@ export function Editor({ data, repo, onChange, issuesByField, highlightTarget }:
                         >
                           <Link className="h-3 w-3" />
                         </button>
+                        <button
+                          type="button"
+                          onClick={() => openImageModal(s.key, s.label)}
+                          title="Insert image embed (../assets/eip-N/image.png)"
+                          className="rounded p-1 text-muted hover:text-fg hover:bg-zinc-100 dark:hover:bg-zinc-800 transition-colors cursor-pointer"
+                        >
+                          <ImageIcon className="h-3 w-3" />
+                        </button>
 
                         {s.key === "specification" && (
                           <button
@@ -648,6 +722,40 @@ export function Editor({ data, repo, onChange, issuesByField, highlightTarget }:
                       </div>
                     )}
 
+                    {lowercaseMatches.length > 0 && s.key === "specification" && (
+                      <div className="flex flex-wrap items-center justify-between gap-2 rounded-lg border border-purple-200 dark:border-purple-800/60 bg-purple-50/50 dark:bg-purple-950/20 px-3 py-1.5 text-xs">
+                        <div className="flex items-center gap-1.5 flex-wrap">
+                          <span className="font-semibold text-purple-700 dark:text-purple-300">
+                            💡 Lowercase keywords in {s.label}:
+                          </span>
+                          {lowercaseMatches.map(({ kw, count }) => (
+                            <button
+                              key={kw}
+                              type="button"
+                              onClick={() => jumpToKeyword(s.key, kw)}
+                              className="inline-flex items-center gap-1 rounded bg-card px-2 py-0.5 font-mono text-[11px] font-semibold text-purple-700 dark:text-purple-300 border border-purple-200 dark:border-purple-800 shadow-2xs hover:bg-purple-100 dark:hover:bg-purple-900/40 transition-colors cursor-pointer"
+                              title={`Click to jump to and highlight "${kw}" in textarea`}
+                            >
+                              <Search className="h-2.5 w-2.5 opacity-60" />
+                              <span>{kw}</span>
+                              <span className="rounded-full bg-purple-200 dark:bg-purple-900/60 px-1 py-0.2 text-[9px] font-semibold">
+                                {count}
+                              </span>
+                            </button>
+                          ))}
+                        </div>
+                        <button
+                          type="button"
+                          onClick={() => capitalizeNormativeKeywords(s.key)}
+                          className="inline-flex items-center gap-1 rounded bg-purple-600 text-white font-semibold px-2.5 py-1 text-[11px] shadow-xs hover:bg-purple-700 active:scale-95 transition-all cursor-pointer"
+                          title="Convert lowercase keywords to uppercase RFC 2119 requirements (e.g. must -> MUST)"
+                        >
+                          <Sparkles className="h-3 w-3" />
+                          <span>Capitalize to RFC 2119 ({lowercaseMatches.reduce((acc, n) => acc + n.count, 0)})</span>
+                        </button>
+                      </div>
+                    )}
+
                     {/* Textarea with backdrop keyword highlighting */}
                     <div
                       className={cn(
@@ -701,6 +809,15 @@ export function Editor({ data, repo, onChange, issuesByField, highlightTarget }:
           </div>
         </div>
       </section>
+
+      <ImageEmbedModal
+        isOpen={imageModal.isOpen}
+        onClose={() => setImageModal((prev) => ({ ...prev, isOpen: false }))}
+        onInsert={handleInsertImage}
+        repo={repo}
+        eipNumber={data.eip}
+        sectionName={imageModal.sectionName}
+      />
     </div>
   );
 }

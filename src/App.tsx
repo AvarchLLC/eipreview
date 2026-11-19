@@ -488,7 +488,7 @@ export default function App() {
           )}
           {showOutput && (
             <div className={cn("bg-card", effectiveView === "split" ? "w-1/2" : "w-full")}>
-              <OutputPane markdown={markdown} />
+              <OutputPane markdown={markdown} repo={repo} />
             </div>
           )}
         </div>

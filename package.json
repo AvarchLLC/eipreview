@@ -7,7 +7,7 @@
   "description": "A client-side IDE for authoring, validating, and reviewing Ethereum proposals (EIPs, ERCs, RIPs). Built with love from EIPsInsight.",
   "scripts": {
     "dev": "vite",
-    "build": "tsc -b && vite build && cp dist/index.html dist/404.html",
+    "build": "tsc -b && vite build && node scripts/generate-routes.js",
     "preview": "vite preview",
     "typecheck": "tsc -b --noEmit"
   },

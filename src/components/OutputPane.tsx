@@ -2,15 +2,18 @@ import { forwardRef, useMemo, useState } from "react";
 import { marked } from "marked";
 import { Check, Copy, Eye } from "lucide-react";
 import { splitFrontmatter } from "../lib/markdown";
+import type { RepoKind } from "../lib/types";
+import { getAsset } from "../lib/assetRegistry";
 
 marked.setOptions({ gfm: true, breaks: false });
 
 interface Props {
   markdown: string;
+  repo?: RepoKind;
 }
 
 export const OutputPane = forwardRef<HTMLDivElement, Props>(function OutputPane(
-  { markdown },
+  { markdown, repo = "eip" },
   ref
 ) {
   const [copied, setCopied] = useState(false);
@@ -28,7 +31,30 @@ export const OutputPane = forwardRef<HTMLDivElement, Props>(function OutputPane(
     [frontmatter]
   );
   const html = useMemo(() => {
-    const rawHtml = marked.parse(body) as string;
+    let rawHtml = marked.parse(body) as string;
+
+    // Process <img> tags to resolve relative EIP asset paths to local preview or GitHub raw assets
+    rawHtml = rawHtml.replace(
+      /<img\s+([^>]*?)src=["']([^"']+)["']([^>]*?)>/gi,
+      (_full, before, src, after) => {
+        // 1. Check in-memory local asset registry (for freshly uploaded preview images)
+        const localUrl = getAsset(src);
+        if (localUrl) {
+          return `<img ${before}src="${localUrl}" data-asset-src="${src}" loading="lazy" ${after}>`;
+        }
+
+        // 2. If relative asset path like ../assets/... or assets/..., resolve to GitHub raw repository
+        if (src.startsWith("../assets/") || src.startsWith("./assets/") || src.startsWith("assets/")) {
+          const cleanPath = src.replace(/^\.\.\//, "").replace(/^\.\//, "");
+          const githubRepo = repo === "erc" ? "ERCs" : repo === "rip" ? "RIPs" : "EIPs";
+          const remoteUrl = `https://raw.githubusercontent.com/ethereum/${githubRepo}/master/${cleanPath}`;
+          return `<img ${before}src="${remoteUrl}" data-asset-src="${src}" onerror="this.onerror=null; this.classList.add('img-fallback');" loading="lazy" ${after}>`;
+        }
+
+        return `<img ${before}src="${src}" onerror="this.onerror=null; this.classList.add('img-fallback');" loading="lazy" ${after}>`;
+      }
+    );
+
     // Highlight normative RFC 2119 keywords in rendered body (inside paragraphs, list items, table cells)
     return rawHtml.replace(
       /(<p[^>]*>|<li>|<td[^>]*>)(.*?)(<\/p>|<\/li>|<\/td>)/gs,
@@ -41,7 +67,7 @@ export const OutputPane = forwardRef<HTMLDivElement, Props>(function OutputPane(
         return `${openTag}${highlighted}${closeTag}`;
       }
     );
-  }, [body]);
+  }, [body, repo]);
 
   const copy = async () => {
     try {
