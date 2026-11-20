@@ -1,18 +1,15 @@
 import {
   AlertCircle,
-  BookOpen,
   CheckCircle2,
   Columns2,
   Download,
   Eye,
   GitPullRequest,
   Loader2,
-  Moon,
   Pencil,
   Plus,
   Search,
   Sparkles,
-  Sun,
 } from "lucide-react";
 import type { RepoKind, TabMode, ViewMode } from "../lib/types";
 import { cn } from "../lib/cn";
@@ -37,9 +34,7 @@ interface Props {
   validated: boolean;
   issueCount: number;
   onShowIssues: () => void;
-  theme: "light" | "dark";
-  onToggleTheme: (event?: React.MouseEvent) => void;
-  onOpenGuide: () => void;
+  isDraftEmpty: boolean;
 }
 
 const TABS: { key: TabMode; label: (r: RepoKind) => string; icon: typeof Plus }[] = [
@@ -201,11 +196,12 @@ export function Toolbar(p: Props) {
           </span>
         )}
 
-        {/* Validate button with precision geometry & amicro-inspired micro-interactions */}
+        {/* Validate button */}
         <button
           onClick={p.onValidate}
-          disabled={p.validating}
-          className="group relative h-8 inline-flex items-center gap-1.5 rounded-lg bg-zinc-900 hover:bg-zinc-800 active:bg-zinc-950 text-white border border-zinc-700/60 dark:border-zinc-700 px-3 text-xs font-semibold tracking-tight shadow-xs transition-all duration-150 active:scale-[0.97] disabled:opacity-50 disabled:pointer-events-none"
+          disabled={p.validating || p.isDraftEmpty}
+          title={p.isDraftEmpty ? "Enter proposal details to validate" : "Validate proposal formatting & CI rules"}
+          className="group relative h-8 inline-flex items-center gap-1.5 rounded-lg bg-zinc-900 hover:bg-zinc-800 active:bg-zinc-950 text-white border border-zinc-700/60 dark:border-zinc-700 px-3 text-xs font-semibold tracking-tight shadow-xs transition-all duration-150 active:scale-[0.97] disabled:opacity-40 disabled:cursor-not-allowed cursor-pointer"
         >
           {p.validating ? (
             <Loader2 className="h-3.5 w-3.5 animate-spin text-indigo-400 shrink-0" />
@@ -220,8 +216,9 @@ export function Toolbar(p: Props) {
         {/* Download draft button */}
         <button
           onClick={p.onDownload}
-          title="Download Markdown file"
-          className="h-8 inline-flex items-center gap-1.5 rounded-lg border border-border bg-card px-3 text-xs font-medium text-fg shadow-2xs transition-all duration-150 hover:bg-zinc-50 dark:hover:bg-zinc-800 active:scale-[0.97]"
+          disabled={p.isDraftEmpty}
+          title={p.isDraftEmpty ? "Draft is empty — add content to export" : "Download Markdown file"}
+          className="h-8 inline-flex items-center gap-1.5 rounded-lg border border-border bg-card px-3 text-xs font-medium text-fg shadow-2xs transition-all duration-150 hover:bg-zinc-50 dark:hover:bg-zinc-800 active:scale-[0.97] disabled:opacity-40 disabled:cursor-not-allowed cursor-pointer"
         >
           <Download className="h-3.5 w-3.5 opacity-70 shrink-0" />
           <span className="hidden sm:inline">Export</span>
@@ -231,8 +228,9 @@ export function Toolbar(p: Props) {
         {p.onCreatePr && p.tab === "new" && (
           <button
             onClick={p.onCreatePr}
-            title="Create Pull Request on GitHub"
-            className="h-8 inline-flex items-center gap-1.5 rounded-lg bg-indigo-600 hover:bg-indigo-500 active:bg-indigo-700 text-white font-semibold px-3 text-xs shadow-xs transition-all duration-150 active:scale-[0.97] cursor-pointer"
+            disabled={p.isDraftEmpty}
+            title={p.isDraftEmpty ? "Draft is empty — add content before creating a PR" : "Create Pull Request on GitHub"}
+            className="h-8 inline-flex items-center gap-1.5 rounded-lg bg-indigo-600 hover:bg-indigo-500 active:bg-indigo-700 text-white font-semibold px-3 text-xs shadow-xs transition-all duration-150 active:scale-[0.97] disabled:opacity-40 disabled:cursor-not-allowed cursor-pointer"
           >
             <GitPullRequest className="h-3.5 w-3.5 shrink-0" />
             <span className="hidden sm:inline">Create PR ↗</span>
@@ -241,8 +239,9 @@ export function Toolbar(p: Props) {
         {p.onCreatePr && p.tab === "import" && (
           <button
             onClick={p.onCreatePr}
-            title="Update proposal on GitHub"
-            className="h-8 inline-flex items-center gap-1.5 rounded-lg border border-border bg-card px-3 text-xs font-medium text-fg shadow-2xs transition-all duration-150 hover:bg-zinc-50 dark:hover:bg-zinc-800 active:scale-[0.97] cursor-pointer"
+            disabled={p.isDraftEmpty}
+            title={p.isDraftEmpty ? "No proposal loaded" : "Update proposal on GitHub"}
+            className="h-8 inline-flex items-center gap-1.5 rounded-lg border border-border bg-card px-3 text-xs font-medium text-fg shadow-2xs transition-all duration-150 hover:bg-zinc-50 dark:hover:bg-zinc-800 active:scale-[0.97] disabled:opacity-40 disabled:cursor-not-allowed cursor-pointer"
           >
             <GitPullRequest className="h-3.5 w-3.5 opacity-70 shrink-0" />
             <span className="hidden sm:inline">Edit on GitHub ↗</span>
@@ -258,24 +257,6 @@ export function Toolbar(p: Props) {
             <span className="hidden sm:inline">GitHub PR ↗</span>
           </button>
         )}
-
-        {/* Quick icon toggles */}
-        <div className="flex items-center gap-1 border-l border-border pl-2">
-          <button
-            onClick={p.onOpenGuide}
-            title="Validation rules guide"
-            className="h-8 w-8 inline-flex items-center justify-center rounded-lg text-muted transition-colors hover:bg-card hover:text-indigo-500"
-          >
-            <BookOpen className="h-4 w-4" />
-          </button>
-          <button
-            onClick={(e) => p.onToggleTheme(e)}
-            title="Toggle theme (circular transition)"
-            className="h-8 w-8 inline-flex items-center justify-center rounded-lg text-muted transition-colors hover:bg-card hover:text-fg"
-          >
-            {p.theme === "dark" ? <Sun className="h-4 w-4 text-amber-400" /> : <Moon className="h-4 w-4" />}
-          </button>
-        </div>
       </div>
     </div>
   );

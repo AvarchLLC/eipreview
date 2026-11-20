@@ -1,5 +1,5 @@
 import { useCallback, useEffect, useMemo, useState } from "react";
-import { BookOpen, ExternalLink, Github, GitPullRequest, Heart, Info } from "lucide-react";
+import { BookOpen, ExternalLink, Github, GitPullRequest, Heart, Info, Moon, Sun } from "lucide-react";
 import { Toolbar } from "./components/Toolbar";
 import { Editor } from "./components/Editor";
 import { OutputPane } from "./components/OutputPane";
@@ -82,6 +82,17 @@ export default function App() {
   const [showGuide, setShowGuide] = useState(false);
   const [showCreatePr, setShowCreatePr] = useState(false);
   const [highlightTarget, setHighlightTarget] = useState<string | null>(null);
+
+  // Check if current proposal draft is completely empty
+  const isDraftEmpty = useMemo(() => {
+    return (
+      !data.title?.trim() &&
+      !data.description?.trim() &&
+      !data.author?.trim() &&
+      !data.abstract?.trim() &&
+      !data.specification?.trim()
+    );
+  }, [data]);
 
   const [importQuery, setImportQuery] = useState(initialRoute.query || "");
   const [importing, setImporting] = useState(false);
@@ -311,6 +322,7 @@ export default function App() {
   );
 
   const validate = useCallback(() => {
+    if (isDraftEmpty) return;
     setValidating(true);
     setShowValidation(true);
     const filename = tab === "pr" ? importedPr?.filename : undefined;
@@ -320,9 +332,10 @@ export default function App() {
       setValidated(result.messages.every((m) => m.level !== "error"));
       setValidating(false);
     }, 120);
-  }, [markdown, repo, tab, importedPr]);
+  }, [markdown, repo, tab, importedPr, isDraftEmpty]);
 
   const download = useCallback(() => {
+    if (isDraftEmpty) return;
     const blob = new Blob([markdown], { type: "text/markdown" });
     const url = URL.createObjectURL(blob);
     const a = document.createElement("a");
@@ -331,7 +344,7 @@ export default function App() {
     a.download = `${repo}-${num}.md`;
     a.click();
     URL.revokeObjectURL(url);
-  }, [markdown, repo, data.eip]);
+  }, [markdown, repo, data.eip, isDraftEmpty]);
 
   // Synchronized jump: scrolls and focuses the left editor field/section
   const handleJump = useCallback(
@@ -438,6 +451,15 @@ export default function App() {
                 <Info className="h-3.5 w-3.5 opacity-70" />
                 <span className="hidden sm:inline">About</span>
               </button>
+
+              {/* Theme Toggle in Header */}
+              <button
+                onClick={(e) => toggle(e)}
+                title={theme === "dark" ? "Switch to light mode" : "Switch to dark mode"}
+                className="inline-flex h-7 w-7 items-center justify-center rounded-lg border border-border bg-card text-muted hover:text-fg hover:border-fg/30 transition-colors shadow-2xs cursor-pointer"
+              >
+                {theme === "dark" ? <Sun className="h-3.5 w-3.5 text-amber-400" /> : <Moon className="h-3.5 w-3.5" />}
+              </button>
             </div>
           </div>
 
@@ -462,9 +484,7 @@ export default function App() {
             validated={validated}
             issueCount={issueCount}
             onShowIssues={() => setShowValidation(true)}
-            theme={theme}
-            onToggleTheme={toggle}
-            onOpenGuide={() => setShowGuide(true)}
+            isDraftEmpty={isDraftEmpty}
           />
         </div>
       </header>
