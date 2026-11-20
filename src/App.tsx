@@ -5,6 +5,7 @@ import { Editor } from "./components/Editor";
 import { OutputPane } from "./components/OutputPane";
 import { ValidationDialog } from "./components/ValidationDialog";
 import { GuideDialog } from "./components/GuideDialog";
+import { CreatePrModal } from "./components/CreatePrModal";
 import { AboutPage } from "./components/AboutPage";
 import { useTheme } from "./hooks/useTheme";
 import { EMPTY_PROPOSAL, generateMarkdown, parseMarkdown } from "./lib/markdown";
@@ -79,6 +80,7 @@ export default function App() {
   const [validating, setValidating] = useState(false);
   const [showValidation, setShowValidation] = useState(false);
   const [showGuide, setShowGuide] = useState(false);
+  const [showCreatePr, setShowCreatePr] = useState(false);
   const [highlightTarget, setHighlightTarget] = useState<string | null>(null);
 
   const [importQuery, setImportQuery] = useState(initialRoute.query || "");
@@ -455,6 +457,7 @@ export default function App() {
             onImport={() => doImport()}
             onValidate={validate}
             onDownload={download}
+            onCreatePr={() => setShowCreatePr(true)}
             validating={validating}
             validated={validated}
             issueCount={issueCount}
@@ -650,6 +653,19 @@ export default function App() {
         />
       )}
       {showGuide && <GuideDialog onClose={() => setShowGuide(false)} />}
+
+      {showCreatePr && (
+        <CreatePrModal
+          isOpen={showCreatePr}
+          onClose={() => setShowCreatePr(false)}
+          markdown={markdown}
+          repo={repo}
+          eipNumber={data.eip}
+          tab={tab}
+          importedPr={importedPr}
+          validationMessages={messages}
+        />
+      )}
     </div>
   );
 }

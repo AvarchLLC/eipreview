@@ -32,6 +32,7 @@ interface Props {
   onImport: () => void;
   onValidate: () => void;
   onDownload: () => void;
+  onCreatePr?: () => void;
   validating: boolean;
   validated: boolean;
   issueCount: number;
@@ -225,6 +226,38 @@ export function Toolbar(p: Props) {
           <Download className="h-3.5 w-3.5 opacity-70 shrink-0" />
           <span className="hidden sm:inline">Export</span>
         </button>
+
+        {/* GitHub action button (Create PR / Edit on GitHub / View PR) */}
+        {p.onCreatePr && p.tab === "new" && (
+          <button
+            onClick={p.onCreatePr}
+            title="Create Pull Request on GitHub"
+            className="h-8 inline-flex items-center gap-1.5 rounded-lg bg-indigo-600 hover:bg-indigo-500 active:bg-indigo-700 text-white font-semibold px-3 text-xs shadow-xs transition-all duration-150 active:scale-[0.97] cursor-pointer"
+          >
+            <GitPullRequest className="h-3.5 w-3.5 shrink-0" />
+            <span className="hidden sm:inline">Create PR ↗</span>
+          </button>
+        )}
+        {p.onCreatePr && p.tab === "import" && (
+          <button
+            onClick={p.onCreatePr}
+            title="Update proposal on GitHub"
+            className="h-8 inline-flex items-center gap-1.5 rounded-lg border border-border bg-card px-3 text-xs font-medium text-fg shadow-2xs transition-all duration-150 hover:bg-zinc-50 dark:hover:bg-zinc-800 active:scale-[0.97] cursor-pointer"
+          >
+            <GitPullRequest className="h-3.5 w-3.5 opacity-70 shrink-0" />
+            <span className="hidden sm:inline">Edit on GitHub ↗</span>
+          </button>
+        )}
+        {p.onCreatePr && p.tab === "pr" && (
+          <button
+            onClick={p.onCreatePr}
+            title="Open PR on GitHub"
+            className="h-8 inline-flex items-center gap-1.5 rounded-lg border border-border bg-card px-3 text-xs font-medium text-fg shadow-2xs transition-all duration-150 hover:bg-zinc-50 dark:hover:bg-zinc-800 active:scale-[0.97] cursor-pointer"
+          >
+            <GitPullRequest className="h-3.5 w-3.5 opacity-70 shrink-0" />
+            <span className="hidden sm:inline">GitHub PR ↗</span>
+          </button>
+        )}
 
         {/* Quick icon toggles */}
         <div className="flex items-center gap-1 border-l border-border pl-2">
