@@ -1,11 +1,27 @@
-import { AlertCircle, ArrowUpRight, BookOpen, CheckCircle2, Info, X } from "lucide-react";
+import { useMemo, useState } from "react";
+import {
+  AlertCircle,
+  ArrowUpRight,
+  BookOpen,
+  Check,
+  CheckCircle2,
+  Copy,
+  FileCode,
+  Info,
+  ListTree,
+  X,
+} from "lucide-react";
 import type { RepoKind, ValidationMessage } from "../lib/types";
+import { formatReviewComment } from "../lib/formatReviewComment";
 import { cn } from "../lib/cn";
 
 interface Props {
   messages: ValidationMessage[];
   repo: RepoKind;
   context: string;
+  prNumber?: number | string;
+  filename?: string;
+  eipNumber?: string;
   onJump: (item: ValidationMessage) => void;
   onClose: () => void;
   onOpenGuide: () => void;
@@ -17,7 +33,20 @@ const GROUPS = [
   { key: "info", title: "Suggestions", blurb: "Editorial style and quality tips." },
 ] as const;
 
-export function ValidationDialog({ messages, repo, context, onJump, onClose, onOpenGuide }: Props) {
+export function ValidationDialog({
+  messages,
+  repo,
+  context,
+  prNumber,
+  filename,
+  eipNumber,
+  onJump,
+  onClose,
+  onOpenGuide,
+}: Props) {
+  const [activeTab, setActiveTab] = useState<"findings" | "markdown">("findings");
+  const [copied, setCopied] = useState(false);
+
   const counts = {
     error: messages.filter((m) => m.level === "error").length,
     warning: messages.filter((m) => m.level === "warning").length,
@@ -25,13 +54,42 @@ export function ValidationDialog({ messages, repo, context, onJump, onClose, onO
   };
   const clean = messages.length === 0;
 
+  // Generate GitHub PR review comment
+  const reviewMarkdown = useMemo(() => {
+    return formatReviewComment({
+      messages,
+      repo,
+      context,
+      prNumber,
+      filename,
+      eipNumber,
+    });
+  }, [messages, repo, context, prNumber, filename, eipNumber]);
+
+  const handleCopyComment = async () => {
+    try {
+      await navigator.clipboard.writeText(reviewMarkdown);
+      setCopied(true);
+      setTimeout(() => setCopied(false), 2500);
+    } catch {
+      const el = document.createElement("textarea");
+      el.value = reviewMarkdown;
+      document.body.appendChild(el);
+      el.select();
+      document.execCommand("copy");
+      document.body.removeChild(el);
+      setCopied(true);
+      setTimeout(() => setCopied(false), 2500);
+    }
+  };
+
   return (
     <div
       className="fixed inset-0 z-50 flex items-center justify-center bg-black/50 p-4 backdrop-blur-xs"
       onClick={onClose}
     >
       <div
-        className="flex max-h-[85vh] w-full max-w-xl flex-col overflow-hidden rounded-2xl border border-border bg-card shadow-2xl"
+        className="flex max-h-[88vh] w-full max-w-xl flex-col overflow-hidden rounded-2xl border border-border bg-card shadow-2xl"
         onClick={(e) => e.stopPropagation()}
       >
         {/* Header */}
@@ -68,37 +126,83 @@ export function ValidationDialog({ messages, repo, context, onJump, onClose, onO
             <button
               onClick={onOpenGuide}
               title="How validation works"
-              className="rounded-lg p-1.5 text-muted hover:text-fg hover:bg-zinc-100 dark:hover:bg-zinc-800 transition-colors"
+              className="rounded-lg p-1.5 text-muted hover:text-fg hover:bg-zinc-100 dark:hover:bg-zinc-800 transition-colors cursor-pointer"
             >
               <BookOpen className="h-4 w-4" />
             </button>
             <button
               onClick={onClose}
-              className="rounded-lg p-1.5 text-muted hover:text-fg hover:bg-zinc-100 dark:hover:bg-zinc-800 transition-colors"
+              className="rounded-lg p-1.5 text-muted hover:text-fg hover:bg-zinc-100 dark:hover:bg-zinc-800 transition-colors cursor-pointer"
             >
               <X className="h-4 w-4" />
             </button>
           </div>
         </div>
 
-        {/* Summary Filter Strip */}
-        <div className="flex items-center gap-2 border-b border-border bg-zinc-50/60 dark:bg-zinc-800/30 px-5 py-2 text-xs">
-          <Pill n={counts.error} label="error" tone="error" />
-          <Pill n={counts.warning} label="warning" tone="warning" />
-          <Pill n={counts.info} label="suggestion" tone="info" />
-          <span className="ml-auto font-mono text-[11px] text-muted">
-            {messages.length} total finding{messages.length === 1 ? "" : "s"}
-          </span>
+        {/* Tab Switcher & Status Filter Strip */}
+        <div className="flex flex-wrap items-center justify-between gap-2 border-b border-border bg-zinc-50/60 dark:bg-zinc-800/30 px-5 py-2 text-xs">
+          <div className="flex items-center gap-1 bg-zinc-200/60 dark:bg-zinc-800 rounded-lg p-0.5">
+            <button
+              onClick={() => setActiveTab("findings")}
+              className={cn(
+                "inline-flex items-center gap-1.5 px-2.5 py-1 rounded-md text-xs font-medium transition-all cursor-pointer",
+                activeTab === "findings"
+                  ? "bg-card text-fg shadow-xs font-semibold"
+                  : "text-muted hover:text-fg"
+              )}
+            >
+              <ListTree className="h-3.5 w-3.5" />
+              <span>Findings ({messages.length})</span>
+            </button>
+            <button
+              onClick={() => setActiveTab("markdown")}
+              className={cn(
+                "inline-flex items-center gap-1.5 px-2.5 py-1 rounded-md text-xs font-medium transition-all cursor-pointer",
+                activeTab === "markdown"
+                  ? "bg-card text-fg shadow-xs font-semibold"
+                  : "text-muted hover:text-fg"
+              )}
+            >
+              <FileCode className="h-3.5 w-3.5 text-indigo-500" />
+              <span>GitHub Review Comment</span>
+            </button>
+          </div>
+
+          {activeTab === "findings" ? (
+            <div className="flex items-center gap-1.5">
+              <Pill n={counts.error} label="error" tone="error" />
+              <Pill n={counts.warning} label="warning" tone="warning" />
+              <Pill n={counts.info} label="suggestion" tone="info" />
+            </div>
+          ) : (
+            <button
+              onClick={handleCopyComment}
+              className="inline-flex items-center gap-1 text-[11px] font-semibold text-indigo-600 dark:text-indigo-400 hover:underline cursor-pointer"
+            >
+              {copied ? <Check className="h-3 w-3 text-emerald-500" /> : <Copy className="h-3 w-3" />}
+              <span>{copied ? "Copied!" : "Copy markdown"}</span>
+            </button>
+          )}
         </div>
 
-        {/* Body list */}
+        {/* Body content */}
         <div className="min-h-0 flex-1 space-y-4 overflow-y-auto p-5">
-          {clean ? (
+          {activeTab === "markdown" ? (
+            <div className="space-y-3">
+              <div className="flex items-center justify-between text-xs text-muted">
+                <span>Formatted GitHub Markdown ready to paste into PR reviews:</span>
+                <span className="font-mono text-[11px]">{reviewMarkdown.length} chars</span>
+              </div>
+              <div className="relative rounded-xl border border-border bg-zinc-950 p-4 font-mono text-xs text-zinc-200 overflow-x-auto shadow-inner max-h-[380px]">
+                <pre className="whitespace-pre-wrap leading-relaxed select-all">{reviewMarkdown}</pre>
+              </div>
+            </div>
+          ) : clean ? (
             <div className="rounded-xl border border-success/30 bg-success-soft p-6 text-center">
               <CheckCircle2 className="mx-auto h-7 w-7 text-success mb-2" />
               <p className="text-sm font-semibold text-fg">Ready for PR Submission</p>
               <p className="mt-1 text-xs text-muted max-w-sm mx-auto">
-                Your draft conforms to all formatting, metadata, and editorial standards of the {repo.toUpperCase()} repository.
+                Your proposal conforms to all formatting, metadata, and editorial standards of the {repo.toUpperCase()} repository.
               </p>
             </div>
           ) : (
@@ -180,16 +284,41 @@ export function ValidationDialog({ messages, repo, context, onJump, onClose, onO
         <div className="flex items-center justify-between border-t border-border bg-zinc-50/50 dark:bg-zinc-800/30 px-5 py-3">
           <button
             onClick={onOpenGuide}
-            className="inline-flex items-center gap-1.5 text-xs text-muted hover:text-fg transition-colors"
+            className="inline-flex items-center gap-1.5 text-xs text-muted hover:text-fg transition-colors cursor-pointer"
           >
             <Info className="h-3.5 w-3.5" /> Rule details & workflow
           </button>
-          <button
-            onClick={onClose}
-            className="rounded-lg border border-border bg-card px-3.5 py-1.5 text-xs font-medium text-fg shadow-xs hover:bg-zinc-50 dark:hover:bg-zinc-800 transition-colors"
-          >
-            Close
-          </button>
+
+          <div className="flex items-center gap-2">
+            <button
+              onClick={handleCopyComment}
+              className={cn(
+                "inline-flex items-center gap-1.5 rounded-lg px-3.5 py-1.5 text-xs font-semibold shadow-xs transition-all duration-150 active:scale-95 cursor-pointer",
+                copied
+                  ? "bg-emerald-600 text-white"
+                  : "bg-indigo-600 hover:bg-indigo-500 active:bg-indigo-700 text-white"
+              )}
+              title="Copy formatted GitHub Markdown review comment to clipboard"
+            >
+              {copied ? (
+                <>
+                  <Check className="h-3.5 w-3.5 text-white" />
+                  <span>Copied Review Comment!</span>
+                </>
+              ) : (
+                <>
+                  <Copy className="h-3.5 w-3.5 opacity-90" />
+                  <span>Copy Review Comment</span>
+                </>
+              )}
+            </button>
+            <button
+              onClick={onClose}
+              className="rounded-lg border border-border bg-card px-3.5 py-1.5 text-xs font-medium text-fg shadow-xs hover:bg-zinc-50 dark:hover:bg-zinc-800 transition-colors cursor-pointer"
+            >
+              Close
+            </button>
+          </div>
         </div>
       </div>
     </div>

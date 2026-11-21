@@ -879,6 +879,9 @@ export default function App() {
           messages={messages}
           repo={repo}
           context={tab === "pr" && importedPr ? `PR #${importedPr.prNumber}` : ""}
+          prNumber={tab === "pr" && importedPr ? importedPr.prNumber : undefined}
+          filename={tab === "pr" && importedPr ? importedPr.filename : undefined}
+          eipNumber={data.eip}
           onJump={handleJump}
           onClose={() => setShowValidation(false)}
           onOpenGuide={() => {
