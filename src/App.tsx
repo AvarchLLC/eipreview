@@ -650,6 +650,42 @@ export default function App() {
               <span className="text-muted/40">·</span>
               <span className="text-indigo-600 dark:text-indigo-400 font-medium">Open Source</span>
             </div>
+
+            <div className="flex flex-wrap items-center gap-3 text-[11px]">
+              <button
+                onClick={(e) => navigateTo({ page: "editor", tab: "new" }, e)}
+                className="text-muted hover:text-fg transition-colors cursor-pointer"
+              >
+                Launch Workspace
+              </button>
+              <span className="text-muted/40">·</span>
+              <a
+                href="https://github.com/ethereum/EIPs/blob/master/CONTRIBUTING.md"
+                target="_blank"
+                rel="noreferrer"
+                className="hover:text-fg transition-colors"
+              >
+                CONTRIBUTING.md
+              </a>
+              <span className="text-muted/40">·</span>
+              <a
+                href="https://github.com/AvarchLLC/eipreview"
+                target="_blank"
+                rel="noreferrer"
+                className="hover:text-fg transition-colors"
+              >
+                GitHub Repository
+              </a>
+              <span className="text-muted/40">·</span>
+              <a
+                href="https://eips.ethereum.org/EIPS/eip-1"
+                target="_blank"
+                rel="noreferrer"
+                className="hover:text-fg transition-colors"
+              >
+                EIP-1 Spec
+              </a>
+            </div>
           </div>
         </div>
       </footer>
