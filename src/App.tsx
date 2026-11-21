@@ -650,10 +650,6 @@ export default function App() {
               <span className="text-muted/40">·</span>
               <span className="text-indigo-600 dark:text-indigo-400 font-medium">Open Source</span>
             </div>
-
-            <div className="text-[11px] text-muted">
-              Pure client-side proposal workspace · No server telemetry
-            </div>
           </div>
         </div>
       </footer>
