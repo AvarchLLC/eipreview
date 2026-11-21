@@ -1,17 +1,29 @@
 import { useCallback, useEffect, useMemo, useState } from "react";
-import { BookOpen, ExternalLink, Github, GitPullRequest, Heart, Info, Moon, Sun } from "lucide-react";
+import { BookOpen, ExternalLink, Github, GitPullRequest, Heart, Info, Moon, Sun, X } from "lucide-react";
 import { Toolbar } from "./components/Toolbar";
 import { Editor } from "./components/Editor";
 import { OutputPane } from "./components/OutputPane";
 import { ValidationDialog } from "./components/ValidationDialog";
 import { GuideDialog } from "./components/GuideDialog";
 import { CreatePrModal } from "./components/CreatePrModal";
+import { ShareDraftModal } from "./components/ShareDraftModal";
+import { ResetDraftModal } from "./components/ResetDraftModal";
 import { AboutPage } from "./components/AboutPage";
 import { useTheme } from "./hooks/useTheme";
 import { EMPTY_PROPOSAL, generateMarkdown, parseMarkdown } from "./lib/markdown";
 import { validateProposal } from "./lib/validation";
 import { fetchProposal, importPr, repoFromFilename } from "./lib/github";
 import { parseCurrentRoute, buildRouteUrl } from "./lib/routes";
+import {
+  loadDraft,
+  saveDraft,
+  clearDraft,
+  backupDraft,
+  restoreBackupDraft,
+  hasBackupDraft,
+  isProposalEmpty,
+} from "./lib/draftStorage";
+import { decompressDraft } from "./lib/draftShare";
 import type {
   ImportedPr,
   ProposalData,
@@ -71,9 +83,27 @@ export default function App() {
   const [repo, setRepo] = useState<RepoKind>(initialRoute.repo);
   const [view, setView] = useState<ViewMode>("split");
 
-  const [data, setData] = useState<ProposalData>({ ...EMPTY_PROPOSAL });
-  const [markdown, setMarkdown] = useState<string>(() => generateMarkdown(EMPTY_PROPOSAL));
-  const [lastEdited, setLastEdited] = useState<"form" | "code">("form");
+  // Crash recovery / Auto-save initialization
+  const initialDraft = useMemo(() => {
+    if (typeof window !== "undefined" && initialRoute.page === "editor" && initialRoute.tab === "new") {
+      const saved = loadDraft(initialRoute.repo);
+      if (saved && !isProposalEmpty(saved.data, saved.markdown)) {
+        return saved;
+      }
+    }
+    return null;
+  }, [initialRoute]);
+
+  const [data, setData] = useState<ProposalData>(() => initialDraft?.data || { ...EMPTY_PROPOSAL });
+  const [markdown, setMarkdown] = useState<string>(
+    () => initialDraft?.markdown || generateMarkdown(EMPTY_PROPOSAL)
+  );
+  const [lastEdited, setLastEdited] = useState<"form" | "code">(initialDraft?.lastEdited || "form");
+
+  const [draftSaveStatus, setDraftSaveStatus] = useState<"idle" | "saving" | "saved">(
+    initialDraft ? "saved" : "idle"
+  );
+  const [lastSavedTime, setLastSavedTime] = useState<number | null>(initialDraft?.savedAt || null);
 
   const [messages, setMessages] = useState<ValidationMessage[]>([]);
   const [validated, setValidated] = useState(false);
@@ -81,7 +111,15 @@ export default function App() {
   const [showValidation, setShowValidation] = useState(false);
   const [showGuide, setShowGuide] = useState(false);
   const [showCreatePr, setShowCreatePr] = useState(false);
+  const [showShareModal, setShowShareModal] = useState(false);
+  const [showResetModal, setShowResetModal] = useState(false);
   const [highlightTarget, setHighlightTarget] = useState<string | null>(null);
+
+  const [toastMessage, setToastMessage] = useState<{
+    text: string;
+    actionLabel?: string;
+    onAction?: () => void;
+  } | null>(null);
 
   // Check if current proposal draft is completely empty
   const isDraftEmpty = useMemo(() => {
@@ -118,6 +156,88 @@ export default function App() {
     if (lastEdited === "code") setData((d) => ({ ...d, ...parseMarkdown(markdown) }));
   }, [markdown, lastEdited]);
 
+  // Continuous Auto-Save for Drafts (/new mode)
+  useEffect(() => {
+    if (tab !== "new") return;
+
+    if (isDraftEmpty) {
+      clearDraft(repo);
+      setDraftSaveStatus("idle");
+      return;
+    }
+
+    setDraftSaveStatus("saving");
+    const timer = setTimeout(() => {
+      const saved = saveDraft(repo, data, markdown, lastEdited);
+      if (saved) {
+        setDraftSaveStatus("saved");
+        setLastSavedTime(Date.now());
+      }
+    }, 400);
+
+    return () => clearTimeout(timer);
+  }, [tab, repo, data, markdown, lastEdited, isDraftEmpty]);
+
+  // Auto-dismiss toast notification after 7s
+  useEffect(() => {
+    if (!toastMessage) return;
+    const timer = setTimeout(() => setToastMessage(null), 7000);
+    return () => clearTimeout(timer);
+  }, [toastMessage]);
+
+  // Detect and decompress shared draft from URL hash (#draft=...)
+  useEffect(() => {
+    const handleHash = async () => {
+      if (typeof window === "undefined") return;
+      const hash = window.location.hash;
+      if (!hash.includes("draft=")) return;
+
+      const param = hash.slice(hash.indexOf("draft="));
+      const shared = await decompressDraft(param);
+      if (shared) {
+        // Backup current draft if it had content
+        if (!isDraftEmpty) {
+          backupDraft(shared.r);
+        }
+
+        setPage("editor");
+        setTab("new");
+        setRepo(shared.r);
+        setMarkdown(shared.m);
+        const parsed = { ...EMPTY_PROPOSAL, ...parseMarkdown(shared.m) };
+        setData(parsed);
+        setLastEdited(shared.e || "code");
+        saveDraft(shared.r, parsed, shared.m, shared.e || "code");
+        setDraftSaveStatus("saved");
+        setLastSavedTime(Date.now());
+
+        // Remove #draft=... from address bar so refresh maintains edits
+        window.history.replaceState(null, "", `/new${shared.r !== "eip" ? `?repo=${shared.r}` : ""}`);
+
+        const hasBackup = hasBackupDraft(shared.r);
+        setToastMessage({
+          text: `Loaded shared ${shared.r.toUpperCase()} proposal draft! (Auto-saved locally)`,
+          actionLabel: hasBackup ? "Restore previous draft" : undefined,
+          onAction: hasBackup
+            ? () => {
+                const restored = restoreBackupDraft(shared.r);
+                if (restored) {
+                  setData(restored.data);
+                  setMarkdown(restored.markdown);
+                  setLastEdited(restored.lastEdited);
+                  setToastMessage({ text: "Restored previous local draft." });
+                }
+              }
+            : undefined,
+        });
+      }
+    };
+
+    handleHash();
+    window.addEventListener("hashchange", handleHash);
+    return () => window.removeEventListener("hashchange", handleHash);
+  }, [isDraftEmpty]);
+
   const clearValidation = useCallback(() => {
     setValidated(false);
     setMessages([]);
@@ -129,6 +249,30 @@ export default function App() {
     setData((prev) => ({ ...prev, [key]: value }));
     setValidated(false);
   }, []);
+
+  // Confirm Reset Draft to Blank
+  const handleConfirmReset = useCallback(() => {
+    backupDraft(repo);
+    clearDraft(repo);
+    setData({ ...EMPTY_PROPOSAL });
+    setMarkdown(generateMarkdown(EMPTY_PROPOSAL));
+    setLastEdited("form");
+    clearValidation();
+    setDraftSaveStatus("idle");
+    setToastMessage({
+      text: `Reset ${repo.toUpperCase()} draft to template.`,
+      actionLabel: "Undo",
+      onAction: () => {
+        const restored = restoreBackupDraft(repo);
+        if (restored) {
+          setData(restored.data);
+          setMarkdown(restored.markdown);
+          setLastEdited(restored.lastEdited);
+          setToastMessage({ text: "Draft restored from backup." });
+        }
+      },
+    });
+  }, [repo, clearValidation]);
 
   // Core Import Logic (with optional parameter overrides for deep links & URL changes)
   const doImport = useCallback(
@@ -182,8 +326,19 @@ export default function App() {
       setImportError(null);
       clearValidation();
       if (newTab === "new") {
-        setData({ ...EMPTY_PROPOSAL });
-        setLastEdited("form");
+        const saved = loadDraft(repo);
+        if (saved && !isProposalEmpty(saved.data, saved.markdown)) {
+          setData(saved.data);
+          setMarkdown(saved.markdown);
+          setLastEdited(saved.lastEdited);
+          setDraftSaveStatus("saved");
+          setLastSavedTime(saved.savedAt);
+        } else {
+          setData({ ...EMPTY_PROPOSAL });
+          setMarkdown(generateMarkdown(EMPTY_PROPOSAL));
+          setLastEdited("form");
+          setDraftSaveStatus("idle");
+        }
         setImportedPr(null);
         setImportQuery("");
         const url = repo !== "eip" ? `/new?repo=${repo}` : "/new";
@@ -205,6 +360,19 @@ export default function App() {
       setRepo(newRepo);
       clearValidation();
       if (tab === "new") {
+        const saved = loadDraft(newRepo);
+        if (saved && !isProposalEmpty(saved.data, saved.markdown)) {
+          setData(saved.data);
+          setMarkdown(saved.markdown);
+          setLastEdited(saved.lastEdited);
+          setDraftSaveStatus("saved");
+          setLastSavedTime(saved.savedAt);
+        } else {
+          setData({ ...EMPTY_PROPOSAL });
+          setMarkdown(generateMarkdown(EMPTY_PROPOSAL));
+          setLastEdited("form");
+          setDraftSaveStatus("idle");
+        }
         const url = newRepo !== "eip" ? `/new?repo=${newRepo}` : "/new";
         window.history.pushState(null, "", url);
       } else if (tab === "import" && importQuery && /^\d+$/.test(importQuery)) {
@@ -269,8 +437,19 @@ export default function App() {
         setRepo(targetRepo);
         setImportQuery(targetQuery);
         if (targetTab === "new") {
-          setData({ ...EMPTY_PROPOSAL });
-          setLastEdited("form");
+          const saved = loadDraft(targetRepo);
+          if (saved && !isProposalEmpty(saved.data, saved.markdown)) {
+            setData(saved.data);
+            setMarkdown(saved.markdown);
+            setLastEdited(saved.lastEdited);
+            setDraftSaveStatus("saved");
+            setLastSavedTime(saved.savedAt);
+          } else {
+            setData({ ...EMPTY_PROPOSAL });
+            setMarkdown(generateMarkdown(EMPTY_PROPOSAL));
+            setLastEdited("form");
+            setDraftSaveStatus("idle");
+          }
           setImportedPr(null);
         }
         clearValidation();
@@ -480,6 +659,10 @@ export default function App() {
             onValidate={validate}
             onDownload={download}
             onCreatePr={() => setShowCreatePr(true)}
+            onShareDraft={() => setShowShareModal(true)}
+            onResetDraft={() => setShowResetModal(true)}
+            draftSaveStatus={draftSaveStatus}
+            lastSavedTime={lastSavedTime}
             validating={validating}
             validated={validated}
             issueCount={issueCount}
@@ -717,6 +900,50 @@ export default function App() {
           importedPr={importedPr}
           validationMessages={messages}
         />
+      )}
+
+      {showShareModal && (
+        <ShareDraftModal
+          repo={repo}
+          data={data}
+          markdown={markdown}
+          lastEdited={lastEdited}
+          onClose={() => setShowShareModal(false)}
+        />
+      )}
+
+      {showResetModal && (
+        <ResetDraftModal
+          repo={repo}
+          onConfirm={handleConfirmReset}
+          onClose={() => setShowResetModal(false)}
+        />
+      )}
+
+      {/* Toast Notification Banner (Auto-save / Shared Draft / Recovery) */}
+      {toastMessage && (
+        <div className="fixed bottom-6 left-1/2 -translate-x-1/2 z-50 flex items-center gap-3 rounded-xl border border-zinc-700/60 dark:border-zinc-700 bg-zinc-900/95 dark:bg-zinc-900/95 text-white px-4 py-2.5 shadow-2xl backdrop-blur-md animate-in fade-in slide-in-from-bottom-2 duration-200 max-w-[90vw]">
+          <span className="h-2 w-2 rounded-full bg-emerald-400 shrink-0" />
+          <span className="text-xs font-medium">{toastMessage.text}</span>
+          {toastMessage.actionLabel && toastMessage.onAction && (
+            <button
+              onClick={() => {
+                toastMessage.onAction?.();
+                setToastMessage(null);
+              }}
+              className="rounded-lg bg-zinc-800 hover:bg-zinc-700 text-indigo-400 hover:text-indigo-300 text-xs font-semibold px-2.5 py-1 border border-zinc-700 transition-colors cursor-pointer shrink-0"
+            >
+              {toastMessage.actionLabel}
+            </button>
+          )}
+          <button
+            onClick={() => setToastMessage(null)}
+            className="rounded-md p-1 text-zinc-400 hover:text-white transition-colors cursor-pointer ml-1"
+            aria-label="Dismiss message"
+          >
+            <X className="h-3.5 w-3.5" />
+          </button>
+        </div>
       )}
     </div>
   );

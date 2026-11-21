@@ -8,7 +8,9 @@ import {
   Loader2,
   Pencil,
   Plus,
+  RotateCcw,
   Search,
+  Share2,
   Sparkles,
 } from "lucide-react";
 import type { RepoKind, TabMode, ViewMode } from "../lib/types";
@@ -30,6 +32,10 @@ interface Props {
   onValidate: () => void;
   onDownload: () => void;
   onCreatePr?: () => void;
+  onShareDraft?: () => void;
+  onResetDraft?: () => void;
+  draftSaveStatus?: "saved" | "saving" | "idle";
+  lastSavedTime?: number | null;
   validating: boolean;
   validated: boolean;
   issueCount: number;
@@ -127,6 +133,41 @@ export function Toolbar(p: Props) {
             )}
           </div>
         )}
+
+        {/* Auto-Save & Crash Recovery status (in /new mode) */}
+        {p.tab === "new" && (
+          <div className="flex items-center gap-2 pl-0.5">
+            {p.draftSaveStatus === "saving" && (
+              <span className="inline-flex items-center gap-1.5 rounded-lg border border-amber-500/25 bg-amber-50/60 dark:bg-amber-950/40 px-2 py-1 text-[11px] font-medium text-amber-600 dark:text-amber-400">
+                <span className="h-1.5 w-1.5 rounded-full bg-amber-500 animate-pulse" />
+                <span>Saving…</span>
+              </span>
+            )}
+            {p.draftSaveStatus === "saved" && !p.isDraftEmpty && (
+              <span
+                title={
+                  p.lastSavedTime
+                    ? `Auto-saved locally at ${new Date(p.lastSavedTime).toLocaleTimeString([], { hour: "2-digit", minute: "2-digit" })}`
+                    : "Auto-saved to local browser storage"
+                }
+                className="inline-flex items-center gap-1.5 rounded-lg border border-emerald-500/25 bg-emerald-50/60 dark:bg-emerald-950/40 px-2 py-1 text-[11px] font-medium text-emerald-600 dark:text-emerald-400 select-none"
+              >
+                <span className="h-1.5 w-1.5 rounded-full bg-emerald-500" />
+                <span>Saved locally</span>
+              </span>
+            )}
+            {p.onResetDraft && !p.isDraftEmpty && (
+              <button
+                onClick={p.onResetDraft}
+                title="Reset draft to blank template"
+                className="inline-flex items-center gap-1 text-[11px] text-muted hover:text-rose-600 dark:hover:text-rose-400 transition-colors px-2 py-1 rounded-md hover:bg-rose-50/50 dark:hover:bg-rose-950/30 cursor-pointer"
+              >
+                <RotateCcw className="h-3 w-3" />
+                <span className="hidden sm:inline">Reset to blank</span>
+              </button>
+            )}
+          </div>
+        )}
       </div>
 
       {/* Right controls: Repo, View, Validation & Actions */}
@@ -212,6 +253,19 @@ export function Toolbar(p: Props) {
           )}
           <span className="relative font-medium tracking-tight">Validate</span>
         </button>
+
+        {/* Share draft button */}
+        {p.tab === "new" && p.onShareDraft && (
+          <button
+            onClick={p.onShareDraft}
+            disabled={p.isDraftEmpty}
+            title={p.isDraftEmpty ? "Draft is empty — add content to share" : "Share draft via private compressed link"}
+            className="h-8 inline-flex items-center gap-1.5 rounded-lg border border-border bg-card px-3 text-xs font-medium text-fg shadow-2xs transition-all duration-150 hover:bg-zinc-50 dark:hover:bg-zinc-800 active:scale-[0.97] disabled:opacity-40 disabled:cursor-not-allowed cursor-pointer"
+          >
+            <Share2 className="h-3.5 w-3.5 opacity-70 shrink-0" />
+            <span className="hidden sm:inline">Share Draft</span>
+          </button>
+        )}
 
         {/* Download draft button */}
         <button
