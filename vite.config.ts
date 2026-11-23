@@ -7,6 +7,32 @@ import tailwindcss from "@tailwindcss/vite";
 export default defineConfig({
   base: "/",
   plugins: [react(), tailwindcss()],
+  server: {
+    proxy: {
+      "/rpc": {
+        target: "https://eipsinsight.com",
+        changeOrigin: true,
+      },
+      "/gh-diff": {
+        target: "https://patch-diff.githubusercontent.com",
+        changeOrigin: true,
+        rewrite: (path) => path.replace(/^\/gh-diff/, ""),
+      },
+    },
+  },
+  preview: {
+    proxy: {
+      "/rpc": {
+        target: "https://eipsinsight.com",
+        changeOrigin: true,
+      },
+      "/gh-diff": {
+        target: "https://patch-diff.githubusercontent.com",
+        changeOrigin: true,
+        rewrite: (path) => path.replace(/^\/gh-diff/, ""),
+      },
+    },
+  },
   build: {
     target: "es2022",
     cssCodeSplit: false,

@@ -15,11 +15,20 @@ export interface PrFeedItem {
   isDraft: boolean;
   labels: PrFeedLabel[];
   url: string;
+  // Enriched signals from EIPsInsight database
+  source?: "eipsinsight" | "github";
+  govState?: string;
+  waitDays?: number;
+  needsAttention?: boolean;
+  ciFailing?: boolean;
+  hasConflicts?: boolean;
+  attentionReason?: string;
 }
 
 export interface PrFeedResult {
   items: PrFeedItem[];
   fromCache: boolean;
+  source?: "eipsinsight" | "github";
   error?: string;
   rateLimited?: boolean;
 }
@@ -30,29 +39,45 @@ const REPO_TARGETS: Record<RepoKind, string> = {
   rip: "ethereum/RIPs",
 };
 
+const REPO_ORPC_PARAM: Record<RepoKind, "eips" | "ercs" | "rips"> = {
+  eip: "eips",
+  erc: "ercs",
+  rip: "rips",
+};
+
 const CACHE_TTL_MS = 5 * 60 * 1000; // 5 minutes
 
 interface CachedData {
   timestamp: number;
   items: PrFeedItem[];
+  source?: "eipsinsight" | "github";
 }
 
 function getCacheKey(repo: RepoKind): string {
   return `eipreview_prs_cache_${repo}`;
 }
 
+/**
+ * Fetch open PRs using a smart hybrid pipeline:
+ * 1. Checks 5-minute browser sessionStorage cache (0ms).
+ * 2. Attempts EIPsInsight ORPC database API for enriched governance & zero GitHub rate limits.
+ * 3. Gracefully falls back to direct GitHub REST API if EIPsInsight is unavailable or CORS-blocked.
+ */
 export async function fetchOpenPrs(repo: RepoKind, forceRefresh = false): Promise<PrFeedResult> {
   const target = REPO_TARGETS[repo];
   const cacheKey = getCacheKey(repo);
 
-  // 1. Check sessionStorage cache if not force refreshing
+  // 1. Check sessionStorage cache if not force-refreshing
   if (!forceRefresh && typeof window !== "undefined" && window.sessionStorage) {
     try {
       const cached = window.sessionStorage.getItem(cacheKey);
       if (cached) {
         const parsed: CachedData = JSON.parse(cached);
-        if (Date.now() - parsed.timestamp < CACHE_TTL_MS && Array.isArray(parsed.items)) {
-          return { items: parsed.items, fromCache: true };
+        if (Date.now() - parsed.timestamp < CACHE_TTL_MS && Array.isArray(parsed.items) && parsed.items.length > 0) {
+          // If already enriched with EIPsInsight, return cached
+          if (parsed.source === "eipsinsight") {
+            return { items: parsed.items, fromCache: true, source: parsed.source };
+          }
         }
       }
     } catch (e) {
@@ -60,7 +85,68 @@ export async function fetchOpenPrs(repo: RepoKind, forceRefresh = false): Promis
     }
   }
 
-  // 2. Fetch from GitHub API
+  // 2. Strategy A: Query EIPsInsight Database API
+  // When running on localhost / 127.0.0.1, use Vite's proxy path (/rpc) to bypass browser CORS preflight
+  const isLocal =
+    typeof window !== "undefined" &&
+    (window.location.hostname === "localhost" ||
+      window.location.hostname === "127.0.0.1" ||
+      window.location.hostname === "0.0.0.0");
+
+  const eipsInsightUrl = isLocal
+    ? "/rpc/tools/getOpenPRBoard"
+    : "https://eipsinsight.com/rpc/tools/getOpenPRBoard";
+
+  try {
+    const eipsInsightRes = await fetch(eipsInsightUrl, {
+      method: "POST",
+      headers: {
+        "Content-Type": "application/json",
+      },
+      body: JSON.stringify({
+        json: {
+          repo: REPO_ORPC_PARAM[repo],
+          pageSize: 30,
+          page: 1,
+          sortBy: "created",
+          sortDir: "desc",
+        },
+      }),
+    });
+
+    if (eipsInsightRes.ok) {
+      const data = await eipsInsightRes.json();
+      const rows = data?.json?.rows;
+      if (Array.isArray(rows) && rows.length > 0) {
+        const items: PrFeedItem[] = rows.map((r: any) => ({
+          number: r.prNumber,
+          title: r.title || `PR #${r.prNumber}`,
+          author: r.author || "unknown",
+          avatarUrl: r.author ? `https://github.com/${r.author}.png` : undefined,
+          updatedAt: r.createdAt || new Date().toISOString(),
+          createdAt: r.createdAt || new Date().toISOString(),
+          isDraft: Boolean(r.govState?.toLowerCase() === "draft"),
+          labels: Array.isArray(r.labels) ? r.labels.map((l: string) => ({ name: l })) : [],
+          url: `https://github.com/${target}/pull/${r.prNumber}`,
+          source: "eipsinsight",
+          govState: r.govState,
+          waitDays: r.waitDays,
+          needsAttention: r.needsAttention,
+          ciFailing: r.ciFailing,
+          hasConflicts: r.hasConflicts,
+          attentionReason: r.attentionReason,
+        }));
+
+        saveToCache(cacheKey, items, "eipsinsight");
+        return { items, fromCache: false, source: "eipsinsight" };
+      }
+    }
+  } catch (err) {
+    // EIPsInsight API or CORS unavailable — continue seamlessly to GitHub fallback
+    console.info("EIPsInsight API unavailable, falling back to GitHub API:", err);
+  }
+
+  // 3. Strategy B: GitHub REST API Fallback
   try {
     const res = await fetch(
       `https://api.github.com/repos/${target}/pulls?state=open&sort=updated&direction=desc&per_page=30`,
@@ -70,16 +156,21 @@ export async function fetchOpenPrs(repo: RepoKind, forceRefresh = false): Promis
     );
 
     if (res.status === 403) {
-      // Check for stale cache fallback
       const stale = getStaleCache(repo);
       if (stale) {
-        return { items: stale, fromCache: true, rateLimited: true, error: "GitHub API rate limit reached. Showing cached list." };
+        return {
+          items: stale.items,
+          fromCache: true,
+          source: stale.source,
+          rateLimited: true,
+          error: "GitHub API rate limit reached. Showing cached list.",
+        };
       }
       return {
         items: [],
         fromCache: false,
         rateLimited: true,
-        error: "GitHub API unauthenticated hourly rate limit reached. You can still review any PR directly by number above.",
+        error: "GitHub API unauthenticated rate limit reached. You can still review any PR directly by number above.",
       };
     }
 
@@ -104,23 +195,20 @@ export async function fetchOpenPrs(repo: RepoKind, forceRefresh = false): Promis
         ? pr.labels.map((l: any) => ({ name: l.name, color: l.color }))
         : [],
       url: pr.html_url,
+      source: "github",
     }));
 
-    // Save to sessionStorage
-    if (typeof window !== "undefined" && window.sessionStorage) {
-      try {
-        const cacheEntry: CachedData = { timestamp: Date.now(), items };
-        window.sessionStorage.setItem(cacheKey, JSON.stringify(cacheEntry));
-      } catch (e) {
-        console.warn("Error saving PRs to sessionStorage:", e);
-      }
-    }
-
-    return { items, fromCache: false };
+    saveToCache(cacheKey, items, "github");
+    return { items, fromCache: false, source: "github" };
   } catch (err) {
     const stale = getStaleCache(repo);
     if (stale) {
-      return { items: stale, fromCache: true, error: "Network error fetching fresh PRs. Showing cached list." };
+      return {
+        items: stale.items,
+        fromCache: true,
+        source: stale.source,
+        error: "Network error fetching fresh PRs. Showing cached list.",
+      };
     }
     return {
       items: [],
@@ -130,14 +218,25 @@ export async function fetchOpenPrs(repo: RepoKind, forceRefresh = false): Promis
   }
 }
 
-function getStaleCache(repo: RepoKind): PrFeedItem[] | null {
+function saveToCache(cacheKey: string, items: PrFeedItem[], source: "eipsinsight" | "github") {
+  if (typeof window !== "undefined" && window.sessionStorage) {
+    try {
+      const cacheEntry: CachedData = { timestamp: Date.now(), items, source };
+      window.sessionStorage.setItem(cacheKey, JSON.stringify(cacheEntry));
+    } catch (e) {
+      console.warn("Error saving PRs to sessionStorage:", e);
+    }
+  }
+}
+
+function getStaleCache(repo: RepoKind): CachedData | null {
   if (typeof window === "undefined" || !window.sessionStorage) return null;
   try {
     const raw = window.sessionStorage.getItem(getCacheKey(repo));
     if (raw) {
       const parsed: CachedData = JSON.parse(raw);
       if (Array.isArray(parsed.items) && parsed.items.length > 0) {
-        return parsed.items;
+        return parsed;
       }
     }
   } catch {

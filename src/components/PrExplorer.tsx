@@ -8,7 +8,6 @@ import {
   Loader2,
   RefreshCw,
   Search,
-  Sparkles,
   User,
   X,
 } from "lucide-react";
@@ -95,7 +94,7 @@ export function PrExplorer({ repo, onSelectRepo, onSelectPr, loadingPrNumber }: 
     setRefreshing(false);
   };
 
-  // Extract all unique labels for filter chips
+  // Extract all unique labels for filter chips (skipping primary filter concepts)
   const availableTags = useMemo(() => {
     const set = new Set<string>();
     for (const pr of prs) {
@@ -103,8 +102,11 @@ export function PrExplorer({ repo, onSelectRepo, onSelectPr, loadingPrNumber }: 
         // Normalize label names for quick filters
         const n = l.name.toLowerCase();
         if (n.startsWith("c-") || n.startsWith("t-") || n.startsWith("s-") || n.startsWith("e-")) {
+          if (["draft", "s-draft", "review", "s-review", "e-review", "w-review", "w-author", "a-review"].includes(n)) {
+            continue;
+          }
           set.add(l.name);
-        } else if (["draft", "core", "erc", "networking", "interface", "review"].includes(n)) {
+        } else if (["core", "erc", "networking", "interface"].includes(n)) {
           set.add(l.name);
         }
       }
@@ -112,17 +114,73 @@ export function PrExplorer({ repo, onSelectRepo, onSelectPr, loadingPrNumber }: 
     return Array.from(set).slice(0, 8);
   }, [prs]);
 
+  // Compute category counts for primary filter tabs
+  const filterCounts = useMemo(() => {
+    let waitingAuthor = 0;
+    let waitingReview = 0;
+    let drafts = 0;
+    let ready = 0;
+
+    for (const pr of prs) {
+      if (pr.isDraft) drafts++;
+      else ready++;
+
+      const isAuthor =
+        pr.govState?.toLowerCase().includes("author") ||
+        pr.labels.some((l) => l.name.toLowerCase() === "w-author" || l.name.toLowerCase() === "a-review");
+      if (isAuthor) waitingAuthor++;
+
+      const isReview =
+        pr.govState?.toLowerCase().includes("editor") ||
+        Boolean(pr.needsAttention) ||
+        pr.labels.some(
+          (l) =>
+            l.name.toLowerCase().includes("review") ||
+            l.name.toLowerCase() === "w-review" ||
+            l.name.toLowerCase() === "e-review" ||
+            l.name.toLowerCase() === "s-review"
+        );
+      if (isReview) waitingReview++;
+    }
+
+    return { waitingAuthor, waitingReview, drafts, ready };
+  }, [prs]);
+
   // Filtered PR list
   const filteredPrs = useMemo(() => {
     const q = searchQuery.trim().toLowerCase();
     return prs.filter((pr) => {
-      // 1. Tag filter
+      // 1. Tag / Status filter
       if (selectedTag === "drafts" && !pr.isDraft) return false;
       if (selectedTag === "ready" && pr.isDraft) return false;
+
+      if (selectedTag === "waiting-author") {
+        const isAuthor =
+          pr.govState?.toLowerCase().includes("author") ||
+          pr.labels.some((l) => l.name.toLowerCase() === "w-author" || l.name.toLowerCase() === "a-review");
+        if (!isAuthor) return false;
+      }
+
+      if (selectedTag === "review") {
+        const isReview =
+          pr.govState?.toLowerCase().includes("editor") ||
+          Boolean(pr.needsAttention) ||
+          pr.labels.some(
+            (l) =>
+              l.name.toLowerCase().includes("review") ||
+              l.name.toLowerCase() === "w-review" ||
+              l.name.toLowerCase() === "e-review" ||
+              l.name.toLowerCase() === "s-review"
+          );
+        if (!isReview) return false;
+      }
+
       if (
         selectedTag !== "all" &&
         selectedTag !== "drafts" &&
         selectedTag !== "ready" &&
+        selectedTag !== "waiting-author" &&
+        selectedTag !== "review" &&
         !pr.labels.some((l) => l.name.toLowerCase() === selectedTag.toLowerCase())
       ) {
         return false;
@@ -262,6 +320,43 @@ export function PrExplorer({ repo, onSelectRepo, onSelectPr, loadingPrNumber }: 
         >
           All ({prs.length})
         </button>
+
+        <button
+          onClick={() => setSelectedTag("waiting-author")}
+          className={cn(
+            "px-2.5 py-1 rounded-lg text-xs font-medium transition-colors cursor-pointer inline-flex items-center gap-1.5",
+            selectedTag === "waiting-author"
+              ? "bg-sky-600 text-white font-semibold shadow-xs"
+              : "border border-border bg-card text-muted hover:text-fg hover:border-sky-500/30"
+          )}
+        >
+          <span className={cn("h-1.5 w-1.5 rounded-full", selectedTag === "waiting-author" ? "bg-white" : "bg-sky-500")} />
+          <span>Waiting on Author</span>
+          {filterCounts.waitingAuthor > 0 && (
+            <span className={cn("text-[10px]", selectedTag === "waiting-author" ? "text-sky-100" : "text-muted")}>
+              ({filterCounts.waitingAuthor})
+            </span>
+          )}
+        </button>
+
+        <button
+          onClick={() => setSelectedTag("review")}
+          className={cn(
+            "px-2.5 py-1 rounded-lg text-xs font-medium transition-colors cursor-pointer inline-flex items-center gap-1.5",
+            selectedTag === "review"
+              ? "bg-amber-600 text-white font-semibold shadow-xs"
+              : "border border-border bg-card text-muted hover:text-fg hover:border-amber-500/30"
+          )}
+        >
+          <span className={cn("h-1.5 w-1.5 rounded-full", selectedTag === "review" ? "bg-white" : "bg-amber-500")} />
+          <span>Waiting on Review</span>
+          {filterCounts.waitingReview > 0 && (
+            <span className={cn("text-[10px]", selectedTag === "review" ? "text-amber-100" : "text-muted")}>
+              ({filterCounts.waitingReview})
+            </span>
+          )}
+        </button>
+
         <button
           onClick={() => setSelectedTag("ready")}
           className={cn(
@@ -282,7 +377,7 @@ export function PrExplorer({ repo, onSelectRepo, onSelectPr, loadingPrNumber }: 
               : "border border-border bg-card text-muted hover:text-fg"
           )}
         >
-          Drafts
+          Drafts ({filterCounts.drafts})
         </button>
         {availableTags.map((tag) => (
           <button
@@ -301,8 +396,8 @@ export function PrExplorer({ repo, onSelectRepo, onSelectPr, loadingPrNumber }: 
 
         {fromCache && (
           <span className="ml-auto text-[11px] text-muted flex items-center gap-1">
-            <Sparkles className="h-3 w-3 text-amber-500" />
-            <span>Cached list (5m TTL)</span>
+            <span className="h-1.5 w-1.5 rounded-full bg-emerald-500" />
+            <span>Cached (5m)</span>
           </span>
         )}
       </div>
@@ -419,6 +514,61 @@ export function PrExplorer({ repo, onSelectRepo, onSelectPr, loadingPrNumber }: 
                       <Clock className="h-3 w-3 opacity-60" />
                       <span>{formatRelativeTime(pr.updatedAt)}</span>
                     </span>
+
+                    {/* Wait Days */}
+                    {typeof pr.waitDays === "number" && pr.waitDays > 0 && (
+                      <>
+                        <span className="text-muted/40">·</span>
+                        <span
+                          className="text-[10px] font-medium text-amber-700 dark:text-amber-400 bg-amber-50 dark:bg-amber-950/40 border border-amber-200/60 dark:border-amber-800/40 px-1.5 py-0.5 rounded"
+                          title={`Waiting for ${pr.waitDays} days in review`}
+                        >
+                          ⏱️ {pr.waitDays}d wait
+                        </span>
+                      </>
+                    )}
+
+                    {/* Governance State Badge */}
+                    {pr.govState && (
+                      <span
+                        className={cn(
+                          "rounded-md border px-2 py-0.5 text-[10px] font-semibold uppercase tracking-wider",
+                          pr.govState.toLowerCase().includes("editor")
+                            ? "border-amber-300 dark:border-amber-700/60 bg-amber-50 dark:bg-amber-950/40 text-amber-700 dark:text-amber-300"
+                            : pr.govState.toLowerCase().includes("author")
+                            ? "border-sky-300 dark:border-sky-700/60 bg-sky-50 dark:bg-sky-950/40 text-sky-700 dark:text-sky-300"
+                            : "border-border bg-zinc-100 dark:bg-zinc-800 text-muted"
+                        )}
+                      >
+                        {pr.govState}
+                      </span>
+                    )}
+
+                    {/* CI Failing Badge */}
+                    {pr.ciFailing && (
+                      <span className="inline-flex items-center gap-1 rounded-md border border-rose-200 dark:border-rose-900/60 bg-rose-50 dark:bg-rose-950/50 px-2 py-0.5 text-[10px] font-semibold text-rose-700 dark:text-rose-300">
+                        <span className="h-1.5 w-1.5 rounded-full bg-rose-500 animate-pulse" />
+                        <span>CI Failing</span>
+                      </span>
+                    )}
+
+                    {/* Needs Attention Badge */}
+                    {pr.needsAttention && (
+                      <span
+                        className="inline-flex items-center gap-1 rounded-md border border-amber-200 dark:border-amber-900/60 bg-amber-50 dark:bg-amber-950/50 px-2 py-0.5 text-[10px] font-semibold text-amber-700 dark:text-amber-300"
+                        title={pr.attentionReason || "Needs editor review"}
+                      >
+                        <AlertCircle className="h-3 w-3 text-amber-500" />
+                        <span>Needs Attention</span>
+                      </span>
+                    )}
+
+                    {/* Has Conflicts Badge */}
+                    {pr.hasConflicts && (
+                      <span className="rounded-md border border-rose-200 dark:border-rose-900/60 bg-rose-50 dark:bg-rose-950/50 px-2 py-0.5 text-[10px] font-semibold text-rose-600 dark:text-rose-400">
+                        Conflicts
+                      </span>
+                    )}
                   </div>
 
                   {/* Title */}
