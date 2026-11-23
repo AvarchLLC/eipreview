@@ -1,5 +1,5 @@
 import { useCallback, useEffect, useMemo, useState } from "react";
-import { BookOpen, ExternalLink, Github, GitPullRequest, Heart, Info, Moon, Sun, X } from "lucide-react";
+import { ArrowLeft, BookOpen, ExternalLink, Github, GitPullRequest, Heart, Info, Moon, Sun, X } from "lucide-react";
 import { Toolbar } from "./components/Toolbar";
 import { Editor } from "./components/Editor";
 import { OutputPane } from "./components/OutputPane";
@@ -8,6 +8,7 @@ import { GuideDialog } from "./components/GuideDialog";
 import { CreatePrModal } from "./components/CreatePrModal";
 import { ShareDraftModal } from "./components/ShareDraftModal";
 import { ResetDraftModal } from "./components/ResetDraftModal";
+import { PrExplorer } from "./components/PrExplorer";
 import { AboutPage } from "./components/AboutPage";
 import { useTheme } from "./hooks/useTheme";
 import { EMPTY_PROPOSAL, generateMarkdown, parseMarkdown } from "./lib/markdown";
@@ -403,6 +404,9 @@ export default function App() {
         }
       } else {
         setImportQuery("");
+        if (parsed.tab === "pr") {
+          setImportedPr(null);
+        }
       }
     };
     window.addEventListener("popstate", onPop);
@@ -663,6 +667,13 @@ export default function App() {
             onResetDraft={() => setShowResetModal(true)}
             draftSaveStatus={draftSaveStatus}
             lastSavedTime={lastSavedTime}
+            hasActivePr={Boolean(importedPr)}
+            onBackToPrList={() => {
+              setImportedPr(null);
+              setImportQuery("");
+              clearValidation();
+              window.history.pushState(null, "", "/review");
+            }}
             validating={validating}
             validated={validated}
             issueCount={issueCount}
@@ -672,32 +683,51 @@ export default function App() {
         </div>
       </header>
 
-      {/* Main Workspace Area */}
+      {/* Main Workspace Area / PR Explorer */}
       <main className="mx-auto flex w-full max-w-[1600px] flex-1 flex-col overflow-hidden px-0">
-        <div className={cn("flex min-h-[calc(100vh-145px)] flex-1", effectiveView === "split" ? "flex-row" : "flex-col")}>
-          {showEdit && (
-            <div
-              className={cn(
-                "p-4 sm:p-6 overflow-y-auto bg-card",
-                effectiveView === "split" ? "w-1/2 border-r border-border" : "w-full"
-              )}
-            >
-              {importedPr && <PrBanner pr={importedPr} />}
-              <Editor
-                data={data}
-                repo={repo}
-                onChange={handleField}
-                issuesByField={issuesByField}
-                highlightTarget={highlightTarget}
-              />
-            </div>
-          )}
-          {showOutput && (
-            <div className={cn("bg-card", effectiveView === "split" ? "w-1/2" : "w-full")}>
-              <OutputPane markdown={markdown} repo={repo} />
-            </div>
-          )}
-        </div>
+        {tab === "pr" && !importedPr ? (
+          <PrExplorer
+            repo={repo}
+            onSelectRepo={handleRepoChange}
+            onSelectPr={(num) => doImport(String(num), "pr", repo)}
+            loadingPrNumber={importing && importQuery ? Number(importQuery) : null}
+          />
+        ) : (
+          <div className={cn("flex min-h-[calc(100vh-145px)] flex-1", effectiveView === "split" ? "flex-row" : "flex-col")}>
+            {showEdit && (
+              <div
+                className={cn(
+                  "p-4 sm:p-6 overflow-y-auto bg-card",
+                  effectiveView === "split" ? "w-1/2 border-r border-border" : "w-full"
+                )}
+              >
+                {importedPr && (
+                  <PrBanner
+                    pr={importedPr}
+                    onBackToPrList={() => {
+                      setImportedPr(null);
+                      setImportQuery("");
+                      clearValidation();
+                      window.history.pushState(null, "", "/review");
+                    }}
+                  />
+                )}
+                <Editor
+                  data={data}
+                  repo={repo}
+                  onChange={handleField}
+                  issuesByField={issuesByField}
+                  highlightTarget={highlightTarget}
+                />
+              </div>
+            )}
+            {showOutput && (
+              <div className={cn("bg-card", effectiveView === "split" ? "w-1/2" : "w-full")}>
+                <OutputPane markdown={markdown} repo={repo} />
+              </div>
+            )}
+          </div>
+        )}
       </main>
 
       {/* Beautiful, Designed, NON-STICKY Footer */}
@@ -972,7 +1002,7 @@ function Logo() {
   );
 }
 
-function PrBanner({ pr }: { pr: ImportedPr }) {
+function PrBanner({ pr, onBackToPrList }: { pr: ImportedPr; onBackToPrList?: () => void }) {
   const tone =
     pr.prState === "merged"
       ? "text-indigo-700 dark:text-indigo-400 border-indigo-200 dark:border-indigo-800 bg-indigo-50 dark:bg-indigo-950/40"
@@ -984,23 +1014,36 @@ function PrBanner({ pr }: { pr: ImportedPr }) {
 
   return (
     <div className="mb-4 rounded-xl border border-border bg-card p-3.5 shadow-xs">
-      <div className="flex flex-wrap items-center gap-2">
-        <GitPullRequest className="h-4 w-4 text-indigo-500" />
-        <a
-          href={pr.prUrl}
-          target="_blank"
-          rel="noreferrer"
-          className="inline-flex items-center gap-1 text-xs font-semibold text-fg hover:underline"
-        >
-          PR #{pr.prNumber}
-          <ExternalLink className="h-3 w-3 opacity-50" />
-        </a>
-        <span className={cn("rounded-md border px-2 py-0.5 text-[10px] font-semibold uppercase tracking-wide", tone)}>
-          {pr.prState}
-        </span>
-        <span className="font-mono text-[11px] text-muted">{pr.filename}</span>
+      <div className="flex flex-wrap items-center justify-between gap-2">
+        <div className="flex flex-wrap items-center gap-2">
+          <GitPullRequest className="h-4 w-4 text-violet-500" />
+          <a
+            href={pr.prUrl}
+            target="_blank"
+            rel="noreferrer"
+            className="inline-flex items-center gap-1 text-xs font-semibold text-fg hover:underline"
+          >
+            PR #{pr.prNumber}
+            <ExternalLink className="h-3 w-3 opacity-50" />
+          </a>
+          <span className={cn("rounded-md border px-2 py-0.5 text-[10px] font-semibold uppercase tracking-wide", tone)}>
+            {pr.prState}
+          </span>
+          <span className="font-mono text-[11px] text-muted">{pr.filename}</span>
+        </div>
+
+        {onBackToPrList && (
+          <button
+            onClick={onBackToPrList}
+            className="inline-flex items-center gap-1.5 rounded-lg border border-border bg-zinc-50 dark:bg-zinc-800/60 hover:bg-zinc-100 dark:hover:bg-zinc-800 text-[11px] font-medium text-fg px-2.5 py-1 transition-colors shadow-2xs cursor-pointer"
+          >
+            <ArrowLeft className="h-3 w-3" />
+            <span>Back to All PRs</span>
+          </button>
+        )}
       </div>
-      {pr.prTitle && <p className="mt-1 text-xs text-body">{pr.prTitle}</p>}
+
+      {pr.prTitle && <p className="mt-1.5 text-xs text-body font-medium">{pr.prTitle}</p>}
       {pr.proposalFiles && pr.proposalFiles.length > 1 && (
         <p className="mt-1 text-[11px] text-muted">
           Reviewing {pr.filename.split("/").pop()} ({pr.proposalFiles.length} files in PR).

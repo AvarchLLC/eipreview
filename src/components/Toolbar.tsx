@@ -1,5 +1,6 @@
 import {
   AlertCircle,
+  ArrowLeft,
   CheckCircle2,
   Columns2,
   Download,
@@ -41,6 +42,8 @@ interface Props {
   issueCount: number;
   onShowIssues: () => void;
   isDraftEmpty: boolean;
+  hasActivePr?: boolean;
+  onBackToPrList?: () => void;
 }
 
 const TABS: { key: TabMode; label: (r: RepoKind) => string; icon: typeof Plus }[] = [
@@ -90,6 +93,17 @@ export function Toolbar(p: Props) {
         {/* Import search box */}
         {(p.tab === "import" || p.tab === "pr") && (
           <div className="flex items-center gap-1.5">
+            {p.tab === "pr" && p.hasActivePr && p.onBackToPrList && (
+              <button
+                onClick={p.onBackToPrList}
+                title="Return to Open PRs feed"
+                className="inline-flex items-center gap-1 px-2.5 py-1.5 text-xs font-semibold text-muted hover:text-fg rounded-lg border border-border bg-card transition-colors shadow-2xs cursor-pointer shrink-0"
+              >
+                <ArrowLeft className="h-3.5 w-3.5 text-violet-500" />
+                <span className="hidden sm:inline">All PRs</span>
+              </button>
+            )}
+
             <div className="relative flex items-center">
               <Search className="pointer-events-none absolute left-2.5 h-3.5 w-3.5 text-muted/60" />
               <input
@@ -171,7 +185,8 @@ export function Toolbar(p: Props) {
       </div>
 
       {/* Right controls: Repo, View, Validation & Actions */}
-      <div className="flex flex-wrap items-center gap-2">
+      {!(p.tab === "pr" && !p.hasActivePr) && (
+        <div className="flex flex-wrap items-center gap-2">
         {/* Proposal Type Selector */}
         <div className={pillGroup}>
           {(["eip", "erc", "rip"] as RepoKind[]).map((r) => {
@@ -312,6 +327,7 @@ export function Toolbar(p: Props) {
           </button>
         )}
       </div>
+      )}
     </div>
   );
 }
