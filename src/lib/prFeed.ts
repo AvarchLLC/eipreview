@@ -29,6 +29,9 @@ export interface PrFeedResult {
   items: PrFeedItem[];
   fromCache: boolean;
   source?: "eipsinsight" | "github";
+  total?: number;
+  hasMore?: boolean;
+  page?: number;
   error?: string;
   rateLimited?: boolean;
 }
@@ -46,11 +49,14 @@ const REPO_ORPC_PARAM: Record<RepoKind, "eips" | "ercs" | "rips"> = {
 };
 
 const CACHE_TTL_MS = 5 * 60 * 1000; // 5 minutes
+const PAGE_SIZE = 50;
 
 interface CachedData {
   timestamp: number;
   items: PrFeedItem[];
   source?: "eipsinsight" | "github";
+  total?: number;
+  hasMore?: boolean;
 }
 
 function getCacheKey(repo: RepoKind): string {
@@ -59,16 +65,20 @@ function getCacheKey(repo: RepoKind): string {
 
 /**
  * Fetch open PRs using a smart hybrid pipeline:
- * 1. Checks 5-minute browser sessionStorage cache (0ms).
+ * 1. Checks 5-minute browser sessionStorage cache for page 1 (0ms).
  * 2. Attempts EIPsInsight ORPC database API for enriched governance & zero GitHub rate limits.
  * 3. Gracefully falls back to direct GitHub REST API if EIPsInsight is unavailable or CORS-blocked.
  */
-export async function fetchOpenPrs(repo: RepoKind, forceRefresh = false): Promise<PrFeedResult> {
+export async function fetchOpenPrs(
+  repo: RepoKind,
+  forceRefresh = false,
+  page = 1
+): Promise<PrFeedResult> {
   const target = REPO_TARGETS[repo];
   const cacheKey = getCacheKey(repo);
 
-  // 1. Check sessionStorage cache if not force-refreshing
-  if (!forceRefresh && typeof window !== "undefined" && window.sessionStorage) {
+  // 1. Check sessionStorage cache for page 1 if not force-refreshing
+  if (!forceRefresh && page === 1 && typeof window !== "undefined" && window.sessionStorage) {
     try {
       const cached = window.sessionStorage.getItem(cacheKey);
       if (cached) {
@@ -76,7 +86,14 @@ export async function fetchOpenPrs(repo: RepoKind, forceRefresh = false): Promis
         if (Date.now() - parsed.timestamp < CACHE_TTL_MS && Array.isArray(parsed.items) && parsed.items.length > 0) {
           // If already enriched with EIPsInsight, return cached
           if (parsed.source === "eipsinsight") {
-            return { items: parsed.items, fromCache: true, source: parsed.source };
+            return {
+              items: parsed.items,
+              fromCache: true,
+              source: parsed.source,
+              total: parsed.total,
+              hasMore: parsed.hasMore,
+              page: 1,
+            };
           }
         }
       }
@@ -106,8 +123,8 @@ export async function fetchOpenPrs(repo: RepoKind, forceRefresh = false): Promis
       body: JSON.stringify({
         json: {
           repo: REPO_ORPC_PARAM[repo],
-          pageSize: 30,
-          page: 1,
+          pageSize: PAGE_SIZE,
+          page,
           sortBy: "created",
           sortDir: "desc",
         },
@@ -117,6 +134,9 @@ export async function fetchOpenPrs(repo: RepoKind, forceRefresh = false): Promis
     if (eipsInsightRes.ok) {
       const data = await eipsInsightRes.json();
       const rows = data?.json?.rows;
+      const total = typeof data?.json?.total === "number" ? data.json.total : undefined;
+      const hasMore = typeof total === "number" ? page * PAGE_SIZE < total : (rows?.length ?? 0) === PAGE_SIZE;
+
       if (Array.isArray(rows) && rows.length > 0) {
         const items: PrFeedItem[] = rows.map((r: any) => ({
           number: r.prNumber,
@@ -125,7 +145,12 @@ export async function fetchOpenPrs(repo: RepoKind, forceRefresh = false): Promis
           avatarUrl: r.author ? `https://github.com/${r.author}.png` : undefined,
           updatedAt: r.createdAt || new Date().toISOString(),
           createdAt: r.createdAt || new Date().toISOString(),
-          isDraft: Boolean(r.govState?.toLowerCase() === "draft"),
+          isDraft: Boolean(
+            r.govState?.toLowerCase() === "draft" ||
+            r.govState?.toLowerCase() === "awaited" ||
+            r.processType?.toLowerCase() === "pr draft" ||
+            (Array.isArray(r.labels) && r.labels.some((l: string) => l.toLowerCase() === "s-draft" || l.toLowerCase() === "draft"))
+          ),
           labels: Array.isArray(r.labels) ? r.labels.map((l: string) => ({ name: l })) : [],
           url: `https://github.com/${target}/pull/${r.prNumber}`,
           source: "eipsinsight",
@@ -137,8 +162,10 @@ export async function fetchOpenPrs(repo: RepoKind, forceRefresh = false): Promis
           attentionReason: r.attentionReason,
         }));
 
-        saveToCache(cacheKey, items, "eipsinsight");
-        return { items, fromCache: false, source: "eipsinsight" };
+        if (page === 1) {
+          saveToCache(cacheKey, items, "eipsinsight", total, hasMore);
+        }
+        return { items, fromCache: false, source: "eipsinsight", total, hasMore, page };
       }
     }
   } catch (err) {
@@ -149,7 +176,7 @@ export async function fetchOpenPrs(repo: RepoKind, forceRefresh = false): Promis
   // 3. Strategy B: GitHub REST API Fallback
   try {
     const res = await fetch(
-      `https://api.github.com/repos/${target}/pulls?state=open&sort=updated&direction=desc&per_page=30`,
+      `https://api.github.com/repos/${target}/pulls?state=open&sort=updated&direction=desc&per_page=${PAGE_SIZE}&page=${page}`,
       {
         headers: { Accept: "application/vnd.github+json" },
       }
@@ -162,6 +189,8 @@ export async function fetchOpenPrs(repo: RepoKind, forceRefresh = false): Promis
           items: stale.items,
           fromCache: true,
           source: stale.source,
+          total: stale.total,
+          hasMore: stale.hasMore,
           rateLimited: true,
           error: "GitHub API rate limit reached. Showing cached list.",
         };
@@ -183,6 +212,7 @@ export async function fetchOpenPrs(repo: RepoKind, forceRefresh = false): Promis
       throw new Error("Unexpected response structure from GitHub API");
     }
 
+    const hasMore = data.length === PAGE_SIZE;
     const items: PrFeedItem[] = data.map((pr: any) => ({
       number: pr.number,
       title: pr.title || `PR #${pr.number}`,
@@ -198,8 +228,10 @@ export async function fetchOpenPrs(repo: RepoKind, forceRefresh = false): Promis
       source: "github",
     }));
 
-    saveToCache(cacheKey, items, "github");
-    return { items, fromCache: false, source: "github" };
+    if (page === 1) {
+      saveToCache(cacheKey, items, "github", undefined, hasMore);
+    }
+    return { items, fromCache: false, source: "github", hasMore, page };
   } catch (err) {
     const stale = getStaleCache(repo);
     if (stale) {
@@ -207,6 +239,8 @@ export async function fetchOpenPrs(repo: RepoKind, forceRefresh = false): Promis
         items: stale.items,
         fromCache: true,
         source: stale.source,
+        total: stale.total,
+        hasMore: stale.hasMore,
         error: "Network error fetching fresh PRs. Showing cached list.",
       };
     }
@@ -218,10 +252,16 @@ export async function fetchOpenPrs(repo: RepoKind, forceRefresh = false): Promis
   }
 }
 
-function saveToCache(cacheKey: string, items: PrFeedItem[], source: "eipsinsight" | "github") {
+function saveToCache(
+  cacheKey: string,
+  items: PrFeedItem[],
+  source: "eipsinsight" | "github",
+  total?: number,
+  hasMore?: boolean
+) {
   if (typeof window !== "undefined" && window.sessionStorage) {
     try {
-      const cacheEntry: CachedData = { timestamp: Date.now(), items, source };
+      const cacheEntry: CachedData = { timestamp: Date.now(), items, source, total, hasMore };
       window.sessionStorage.setItem(cacheKey, JSON.stringify(cacheEntry));
     } catch (e) {
       console.warn("Error saving PRs to sessionStorage:", e);

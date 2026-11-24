@@ -56,6 +56,10 @@ export function PrExplorer({ repo, onSelectRepo, onSelectPr, loadingPrNumber }: 
   const [prs, setPrs] = useState<PrFeedItem[]>([]);
   const [loading, setLoading] = useState(true);
   const [refreshing, setRefreshing] = useState(false);
+  const [loadingMore, setLoadingMore] = useState(false);
+  const [page, setPage] = useState(1);
+  const [hasMore, setHasMore] = useState(false);
+  const [totalCount, setTotalCount] = useState<number | null>(null);
   const [searchQuery, setSearchQuery] = useState("");
   const [directNumber, setDirectNumber] = useState("");
   const [selectedTag, setSelectedTag] = useState<string>("all");
@@ -70,10 +74,13 @@ export function PrExplorer({ repo, onSelectRepo, onSelectPr, loadingPrNumber }: 
     async function load() {
       setLoading(true);
       setErrorNotice(null);
-      const res = await fetchOpenPrs(repo, false);
+      setPage(1);
+      const res = await fetchOpenPrs(repo, false, 1);
       if (cancelled) return;
       setPrs(res.items);
       setFromCache(res.fromCache);
+      setHasMore(Boolean(res.hasMore));
+      if (typeof res.total === "number") setTotalCount(res.total);
       if (res.error) setErrorNotice(res.error);
       setLoading(false);
     }
@@ -87,11 +94,35 @@ export function PrExplorer({ repo, onSelectRepo, onSelectPr, loadingPrNumber }: 
   const handleRefresh = async () => {
     setRefreshing(true);
     setErrorNotice(null);
-    const res = await fetchOpenPrs(repo, true);
+    setPage(1);
+    const res = await fetchOpenPrs(repo, true, 1);
     setPrs(res.items);
     setFromCache(res.fromCache);
+    setHasMore(Boolean(res.hasMore));
+    if (typeof res.total === "number") setTotalCount(res.total);
     if (res.error) setErrorNotice(res.error);
     setRefreshing(false);
+  };
+
+  // Load more proposals (pagination)
+  const handleLoadMore = async () => {
+    if (loadingMore || !hasMore) return;
+    setLoadingMore(true);
+    const nextPage = page + 1;
+    const res = await fetchOpenPrs(repo, false, nextPage);
+    if (res.items.length > 0) {
+      setPrs((prev) => {
+        const existingIds = new Set(prev.map((p) => p.number));
+        const newItems = res.items.filter((p) => !existingIds.has(p.number));
+        return [...prev, ...newItems];
+      });
+      setPage(nextPage);
+      setHasMore(Boolean(res.hasMore));
+      if (typeof res.total === "number") setTotalCount(res.total);
+    } else {
+      setHasMore(false);
+    }
+    setLoadingMore(false);
   };
 
   // Extract all unique labels for filter chips (skipping primary filter concepts)
@@ -102,7 +133,7 @@ export function PrExplorer({ repo, onSelectRepo, onSelectPr, loadingPrNumber }: 
         // Normalize label names for quick filters
         const n = l.name.toLowerCase();
         if (n.startsWith("c-") || n.startsWith("t-") || n.startsWith("s-") || n.startsWith("e-")) {
-          if (["draft", "s-draft", "review", "s-review", "e-review", "w-review", "w-author", "a-review"].includes(n)) {
+          if (["draft", "s-draft", "review", "s-review", "e-review", "w-review", "w-author", "w-editor", "a-review"].includes(n)) {
             continue;
           }
           set.add(l.name);
@@ -114,36 +145,41 @@ export function PrExplorer({ repo, onSelectRepo, onSelectPr, loadingPrNumber }: 
     return Array.from(set).slice(0, 8);
   }, [prs]);
 
-  // Compute category counts for primary filter tabs
+  // Classify a PR into its authoritative governance category
+  const getPrCategory = (pr: PrFeedItem): "editor" | "author" | "draft" | "other" => {
+    if (pr.isDraft) return "draft";
+    if (pr.govState) {
+      const s = pr.govState.toLowerCase();
+      if (s.includes("editor")) return "editor";
+      if (s.includes("author")) return "author";
+    }
+    // Fallback for direct GitHub API when EIPsInsight is offline
+    const hasEditor = pr.labels.some((l) => l.name.toLowerCase() === "w-editor");
+    if (hasEditor) return "editor";
+    const hasAuthor = pr.labels.some((l) => l.name.toLowerCase() === "w-author");
+    if (hasAuthor) return "author";
+    return "other";
+  };
+
+  // Compute exact, mutually exclusive category counts
   const filterCounts = useMemo(() => {
     let waitingAuthor = 0;
-    let waitingReview = 0;
+    let waitingEditor = 0;
     let drafts = 0;
     let ready = 0;
 
     for (const pr of prs) {
-      if (pr.isDraft) drafts++;
-      else ready++;
-
-      const isAuthor =
-        pr.govState?.toLowerCase().includes("author") ||
-        pr.labels.some((l) => l.name.toLowerCase() === "w-author" || l.name.toLowerCase() === "a-review");
-      if (isAuthor) waitingAuthor++;
-
-      const isReview =
-        pr.govState?.toLowerCase().includes("editor") ||
-        Boolean(pr.needsAttention) ||
-        pr.labels.some(
-          (l) =>
-            l.name.toLowerCase().includes("review") ||
-            l.name.toLowerCase() === "w-review" ||
-            l.name.toLowerCase() === "e-review" ||
-            l.name.toLowerCase() === "s-review"
-        );
-      if (isReview) waitingReview++;
+      const cat = getPrCategory(pr);
+      if (cat === "draft") {
+        drafts++;
+      } else {
+        ready++;
+        if (cat === "editor") waitingEditor++;
+        if (cat === "author") waitingAuthor++;
+      }
     }
 
-    return { waitingAuthor, waitingReview, drafts, ready };
+    return { waitingAuthor, waitingEditor, drafts, ready };
   }, [prs]);
 
   // Filtered PR list
@@ -154,25 +190,12 @@ export function PrExplorer({ repo, onSelectRepo, onSelectPr, loadingPrNumber }: 
       if (selectedTag === "drafts" && !pr.isDraft) return false;
       if (selectedTag === "ready" && pr.isDraft) return false;
 
-      if (selectedTag === "waiting-author") {
-        const isAuthor =
-          pr.govState?.toLowerCase().includes("author") ||
-          pr.labels.some((l) => l.name.toLowerCase() === "w-author" || l.name.toLowerCase() === "a-review");
-        if (!isAuthor) return false;
+      if (selectedTag === "waiting-author" && getPrCategory(pr) !== "author") {
+        return false;
       }
 
-      if (selectedTag === "review") {
-        const isReview =
-          pr.govState?.toLowerCase().includes("editor") ||
-          Boolean(pr.needsAttention) ||
-          pr.labels.some(
-            (l) =>
-              l.name.toLowerCase().includes("review") ||
-              l.name.toLowerCase() === "w-review" ||
-              l.name.toLowerCase() === "e-review" ||
-              l.name.toLowerCase() === "s-review"
-          );
-        if (!isReview) return false;
+      if (selectedTag === "waiting-editor" && getPrCategory(pr) !== "editor") {
+        return false;
       }
 
       if (
@@ -180,7 +203,7 @@ export function PrExplorer({ repo, onSelectRepo, onSelectPr, loadingPrNumber }: 
         selectedTag !== "drafts" &&
         selectedTag !== "ready" &&
         selectedTag !== "waiting-author" &&
-        selectedTag !== "review" &&
+        selectedTag !== "waiting-editor" &&
         !pr.labels.some((l) => l.name.toLowerCase() === selectedTag.toLowerCase())
       ) {
         return false;
@@ -322,37 +345,37 @@ export function PrExplorer({ repo, onSelectRepo, onSelectPr, loadingPrNumber }: 
         </button>
 
         <button
-          onClick={() => setSelectedTag("waiting-author")}
+          onClick={() => setSelectedTag("waiting-editor")}
           className={cn(
             "px-2.5 py-1 rounded-lg text-xs font-medium transition-colors cursor-pointer inline-flex items-center gap-1.5",
-            selectedTag === "waiting-author"
-              ? "bg-sky-600 text-white font-semibold shadow-xs"
-              : "border border-border bg-card text-muted hover:text-fg hover:border-sky-500/30"
+            selectedTag === "waiting-editor"
+              ? "bg-blue-600 text-white font-semibold shadow-xs"
+              : "border border-border bg-card text-muted hover:text-fg hover:border-blue-500/30"
           )}
         >
-          <span className={cn("h-1.5 w-1.5 rounded-full", selectedTag === "waiting-author" ? "bg-white" : "bg-sky-500")} />
-          <span>Waiting on Author</span>
-          {filterCounts.waitingAuthor > 0 && (
-            <span className={cn("text-[10px]", selectedTag === "waiting-author" ? "text-sky-100" : "text-muted")}>
-              ({filterCounts.waitingAuthor})
+          <span className={cn("h-1.5 w-1.5 rounded-full", selectedTag === "waiting-editor" ? "bg-white" : "bg-blue-500")} />
+          <span>Waiting on Editor</span>
+          {filterCounts.waitingEditor > 0 && (
+            <span className={cn("text-[10px]", selectedTag === "waiting-editor" ? "text-blue-100" : "text-muted")}>
+              ({filterCounts.waitingEditor})
             </span>
           )}
         </button>
 
         <button
-          onClick={() => setSelectedTag("review")}
+          onClick={() => setSelectedTag("waiting-author")}
           className={cn(
             "px-2.5 py-1 rounded-lg text-xs font-medium transition-colors cursor-pointer inline-flex items-center gap-1.5",
-            selectedTag === "review"
+            selectedTag === "waiting-author"
               ? "bg-amber-600 text-white font-semibold shadow-xs"
               : "border border-border bg-card text-muted hover:text-fg hover:border-amber-500/30"
           )}
         >
-          <span className={cn("h-1.5 w-1.5 rounded-full", selectedTag === "review" ? "bg-white" : "bg-amber-500")} />
-          <span>Waiting on Review</span>
-          {filterCounts.waitingReview > 0 && (
-            <span className={cn("text-[10px]", selectedTag === "review" ? "text-amber-100" : "text-muted")}>
-              ({filterCounts.waitingReview})
+          <span className={cn("h-1.5 w-1.5 rounded-full", selectedTag === "waiting-author" ? "bg-white" : "bg-amber-500")} />
+          <span>Waiting on Author</span>
+          {filterCounts.waitingAuthor > 0 && (
+            <span className={cn("text-[10px]", selectedTag === "waiting-author" ? "text-amber-100" : "text-muted")}>
+              ({filterCounts.waitingAuthor})
             </span>
           )}
         </button>
@@ -366,7 +389,12 @@ export function PrExplorer({ repo, onSelectRepo, onSelectPr, loadingPrNumber }: 
               : "border border-border bg-card text-muted hover:text-fg"
           )}
         >
-          Ready for Review
+          <span>Ready for Review</span>
+          {filterCounts.ready > 0 && (
+            <span className={cn("ml-1 text-[10px]", selectedTag === "ready" ? "text-violet-100" : "text-muted")}>
+              ({filterCounts.ready})
+            </span>
+          )}
         </button>
         <button
           onClick={() => setSelectedTag("drafts")}
@@ -534,9 +562,9 @@ export function PrExplorer({ repo, onSelectRepo, onSelectPr, loadingPrNumber }: 
                         className={cn(
                           "rounded-md border px-2 py-0.5 text-[10px] font-semibold uppercase tracking-wider",
                           pr.govState.toLowerCase().includes("editor")
-                            ? "border-amber-300 dark:border-amber-700/60 bg-amber-50 dark:bg-amber-950/40 text-amber-700 dark:text-amber-300"
+                            ? "border-blue-300 dark:border-blue-700/60 bg-blue-50 dark:bg-blue-950/40 text-blue-700 dark:text-blue-300"
                             : pr.govState.toLowerCase().includes("author")
-                            ? "border-sky-300 dark:border-sky-700/60 bg-sky-50 dark:bg-sky-950/40 text-sky-700 dark:text-sky-300"
+                            ? "border-amber-300 dark:border-amber-700/60 bg-amber-50 dark:bg-amber-950/40 text-amber-700 dark:text-amber-300"
                             : "border-border bg-zinc-100 dark:bg-zinc-800 text-muted"
                         )}
                       >
@@ -620,6 +648,31 @@ export function PrExplorer({ repo, onSelectRepo, onSelectPr, loadingPrNumber }: 
               </div>
             );
           })}
+        </div>
+      )}
+
+      {/* Pagination: Load More Proposals */}
+      {!loading && hasMore && (
+        <div className="pt-2 pb-6 flex flex-col items-center gap-2">
+          <button
+            onClick={handleLoadMore}
+            disabled={loadingMore}
+            className="inline-flex items-center gap-2 rounded-xl border border-border bg-card px-5 py-2.5 text-xs font-semibold text-fg hover:bg-zinc-100 dark:hover:bg-zinc-800/80 active:scale-98 transition-all shadow-xs cursor-pointer disabled:opacity-50 disabled:cursor-not-allowed"
+          >
+            {loadingMore ? (
+              <>
+                <Loader2 className="h-3.5 w-3.5 animate-spin text-violet-500" />
+                <span>Loading more proposals…</span>
+              </>
+            ) : (
+              <>
+                <span>Load More Proposals</span>
+                <span className="text-muted text-[11px] font-normal">
+                  ({prs.length}{totalCount ? ` of ${totalCount}` : ""} loaded)
+                </span>
+              </>
+            )}
+          </button>
         </div>
       )}
     </div>
